@@ -1,5 +1,11 @@
 {
   "config": {
+    "step": {
+      "user": {
+        "title": "Enedis entreprise (R6X)",
+        "description": "Configuration from the interface is not available yet."
+      }
+    },
     "abort": {
       "not_ready": "This integration cannot be configured from the interface yet (work in progress)."
     }
