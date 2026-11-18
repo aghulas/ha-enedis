@@ -16,6 +16,20 @@ settle are listed under "Open questions" — to calibrate on the first real file
   the business account, files are **encrypted (AES-256, dynamic IV)**; the key is created with the
   channel in the business account.
 
+### As seen in the business account (2026-11-18)
+
+- *Vos données énergétiques → Les services de données → Recevoir vos données régulièrement →
+  Paramétrer vos abonnements → Comptage supérieur à 36 kVA ou HTA*: one row per data type and
+  frequency, CSV or JSON, a "S'abonner" switch, then *Enregistrer les modifications*.
+- Rows offered above 36 kVA: **Index** (daily / weekly / monthly), **Courbe de charge brute** (daily /
+  weekly / monthly), **Courbe de charge corrigée** (**weekly / monthly only — no daily**). So daily data
+  is raw (`BRUT`); corrected data (`BEST`) comes at best once a week and overwrites it.
+- *Vos abonnements* also lists the published files for download from the account itself.
+- *Gestion de votre entreprise → Vos canaux numériques*: e-mail / FTP channels; each shows its key
+  (masked, with a "Copier" button) and a "Générer une nouvelle clé" button.
+- Sending a subscription to a channel is the "par e-mail/serveur FTP" link of its row, greyed out
+  right after subscribing (expected to open after the activation delay).
+
 ## Archive and file names
 
 `Enedis_<codeFlux>_<modePublication>_<typeDonnees>_<idDemande>_<SIREN>_<horodate>.zip` containing
