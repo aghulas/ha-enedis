@@ -12,9 +12,12 @@ class FolderSource:
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
 
-    def poll(self, known: Collection[str]) -> list[SourceFile]:
+    def check(self) -> None:
         if not self._path.is_dir():
             raise SourceError("the folder does not exist or is not readable")
+
+    def poll(self, known: Collection[str]) -> list[SourceFile]:
+        self.check()
         files: list[SourceFile] = []
         try:
             for path in sorted(self._path.rglob("*")):

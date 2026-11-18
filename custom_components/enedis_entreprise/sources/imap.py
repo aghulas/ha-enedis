@@ -7,7 +7,7 @@ import contextlib
 import email
 import email.policy
 import imaplib
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 
@@ -38,26 +38,35 @@ class ImapSource:
         self._without_publication: set[str] = set()
 
     def poll(self, known: Collection[str]) -> list[SourceFile]:
+        return self._session(lambda client: self._poll(client, known))
+
+    def check(self) -> None:
+        self._session(self._open)
+
+    def _session[T](self, action: Callable[[imaplib.IMAP4], T]) -> T:
         try:
             client = imaplib.IMAP4_SSL(self._host, self._port, timeout=TIMEOUT)
         except (OSError, imaplib.IMAP4.error) as err:
             raise SourceError(f"cannot connect to the mail server ({type(err).__name__})") from None
         try:
-            return self._poll(client, known)
+            return action(client)
         except imaplib.IMAP4.error:
             # The server's text may repeat the login: never forwarded.
             raise SourceError("the mail server refused the request (login or mailbox?)") from None
-        except (TimeoutError, OSError) as err:
+        except OSError as err:
             raise SourceError(f"mail server connection lost ({type(err).__name__})") from None
         finally:
             with contextlib.suppress(OSError, imaplib.IMAP4.error):
                 client.logout()
 
-    def _poll(self, client: imaplib.IMAP4, known: Collection[str]) -> list[SourceFile]:
+    def _open(self, client: imaplib.IMAP4) -> None:
         client.login(self._username, self._password)
-        status, data = client.select(self._quoted(self._mailbox), readonly=True)
+        status, _ = client.select(self._quoted(self._mailbox), readonly=True)
         if status != "OK":
             raise SourceError("the mailbox folder cannot be opened")
+
+    def _poll(self, client: imaplib.IMAP4, known: Collection[str]) -> list[SourceFile]:
+        self._open(client)
         validity = self._uidvalidity(client)
         since = datetime.now(UTC) - self._lookback
         criteria = ["SINCE", f"{since.day:02d}-{_MONTHS[since.month - 1]}-{since.year}"]

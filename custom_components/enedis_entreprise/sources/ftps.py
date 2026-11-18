@@ -6,7 +6,7 @@ from __future__ import annotations
 import ftplib
 import io
 import ssl
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 
 from .base import MAX_FILE_SIZE, SourceError, SourceFile, looks_like_publication
 
@@ -22,25 +22,19 @@ class FtpsSource:
         self._directory = directory
 
     def poll(self, known: Collection[str]) -> list[SourceFile]:
+        return self._session(lambda client: self._download(client, known))
+
+    def check(self) -> None:
+        self._session(lambda client: None)
+
+    def _session[T](self, action: Callable[[ftplib.FTP_TLS], T]) -> T:
         client = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=TIMEOUT)
         try:
             client.connect(self._host, self._port)
             client.login(self._username, self._password)
             client.prot_p()
             client.cwd(self._directory)
-            files: list[SourceFile] = []
-            for name in sorted(client.nlst()):
-                base = name.rsplit("/", 1)[-1]
-                if not looks_like_publication(base):
-                    continue
-                size = client.size(name) or 0
-                ident = f"ftps:{base}:{size}"
-                if ident in known or size > MAX_FILE_SIZE:
-                    continue
-                buffer = io.BytesIO()
-                client.retrbinary(f"RETR {name}", buffer.write)
-                files.append(SourceFile(ident, base, buffer.getvalue()))
-            return files
+            return action(client)
         except ftplib.error_perm:
             # The server's text may repeat the login: never forwarded.
             raise SourceError("the FTPS server refused the request (login or folder?)") from None
@@ -51,3 +45,19 @@ class FtpsSource:
                 client.quit()
             except (OSError, EOFError, ftplib.Error):
                 client.close()
+
+    @staticmethod
+    def _download(client: ftplib.FTP_TLS, known: Collection[str]) -> list[SourceFile]:
+        files: list[SourceFile] = []
+        for name in sorted(client.nlst()):
+            base = name.rsplit("/", 1)[-1]
+            if not looks_like_publication(base):
+                continue
+            size = client.size(name) or 0
+            ident = f"ftps:{base}:{size}"
+            if ident in known or size > MAX_FILE_SIZE:
+                continue
+            buffer = io.BytesIO()
+            client.retrbinary(f"RETR {name}", buffer.write)
+            files.append(SourceFile(ident, base, buffer.getvalue()))
+        return files

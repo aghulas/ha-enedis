@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 
@@ -12,6 +13,7 @@ from .const import (
     CONF_HOST,
     CONF_KEY,
     CONF_MAILBOX,
+    CONF_NO_FILE_DAYS,
     CONF_PASSWORD,
     CONF_PATH,
     CONF_PORT,
@@ -19,6 +21,7 @@ from .const import (
     CONF_SENDER,
     CONF_SOURCE,
     CONF_USERNAME,
+    DEFAULT_NO_FILE_DAYS,
     DOMAIN,
     SOURCE_FOLDER,
     SOURCE_FTPS,
@@ -28,6 +31,8 @@ from .coordinator import EnedisCoordinator
 from .sources import FolderSource, FtpsSource, ImapSource, Source
 
 __all__ = ["DOMAIN", "async_setup_entry", "async_unload_entry", "build_source"]
+
+PLATFORMS = [Platform.SENSOR]
 
 type EnedisConfigEntry = ConfigEntry[EnedisCoordinator]
 
@@ -64,11 +69,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> bo
         except InvalidKeyError as err:
             raise ConfigEntryError(str(err)) from err
     prms = {str(prm) for prm in entry.options.get(CONF_PRMS, [])}
-    coordinator = EnedisCoordinator(hass, entry, build_source(dict(entry.data)), key, prms)
+    coordinator = EnedisCoordinator(
+        hass,
+        entry,
+        build_source(dict(entry.data)),
+        key,
+        prms,
+        int(entry.options.get(CONF_NO_FILE_DAYS, DEFAULT_NO_FILE_DAYS)),
+    )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_reload))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_reload(hass: HomeAssistant, entry: EnedisConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> bool:
-    return True
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        entry.runtime_data.clear_issues()
+    return unloaded

@@ -265,8 +265,3 @@ def test_build_source() -> None:
     )
     assert isinstance(build_source({"source": "imap"} | common), ImapSource)
     assert isinstance(build_source({"source": "ftps", "port": "990"} | common), FtpsSource)
-
-
-async def test_config_flow_placeholder(recorder_mock: Any, hass: HomeAssistant) -> None:
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert (result["type"], result["reason"]) == ("abort", "not_ready")

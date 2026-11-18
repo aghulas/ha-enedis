@@ -34,6 +34,10 @@ class Source(Protocol):
         """Files whose `ident` is not in `known`. Blocking: call it in an executor."""
         ...
 
+    def check(self) -> None:
+        """Raise SourceError if the source cannot be reached. Downloads nothing."""
+        ...
+
 
 def looks_like_publication(name: str) -> bool:
     """`Enedis_R6xx_…` whatever the prefix (`lisible…`) or the extra extension (`.zip.aes`)."""
