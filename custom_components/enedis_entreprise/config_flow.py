@@ -5,14 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
+    BooleanSelector,
+    FileSelector,
+    FileSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -22,7 +26,7 @@ from homeassistant.helpers.selector import (
 )
 
 from . import build_source
-from .api import InvalidKeyError, parse_key
+from .api import HistoryError, InvalidKeyError, parse_history_csv, parse_key
 from .const import (
     CONF_DIRECTORY,
     CONF_HOST,
@@ -30,9 +34,11 @@ from .const import (
     CONF_KEY,
     CONF_MAILBOX,
     CONF_NO_FILE_DAYS,
+    CONF_OVERWRITE,
     CONF_PASSWORD,
     CONF_PATH,
     CONF_PORT,
+    CONF_PRM,
     CONF_PRMS,
     CONF_SENDER,
     CONF_SOURCE,
@@ -47,6 +53,7 @@ from .const import (
 from .sources import SftpSource, SourceError
 
 SECRETS = (CONF_KEY, CONF_PASSWORD)
+CONF_FILE = "file"
 _SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 _PORT = NumberSelector(NumberSelectorConfig(min=1, max=65535, mode=NumberSelectorMode.BOX))
 TITLES = {
@@ -172,12 +179,65 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
         return {}
 
 
+def _is_prm(text: str) -> bool:
+    return len(text) == 14 and text.isdigit()
+
+
+def _read_history(hass: HomeAssistant, file_id: str) -> list[tuple[Any, int, int]]:
+    """Parse the uploaded CSV; Home Assistant deletes the upload when the block ends."""
+    with process_uploaded_file(hass, file_id) as path:
+        return parse_history_csv(path.read_text(encoding="utf-8-sig"))
+
+
 class EnedisOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["settings", "import_history"])
+
+    async def async_step_import_history(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """One-off import of a load curve exported from the Enedis portal (CSV upload)."""
+        errors: dict[str, str] = {}
+        coordinator = self.config_entry.runtime_data
+        if user_input is not None:
+            prm = user_input[CONF_PRM].strip()
+            if not _is_prm(prm):
+                errors[CONF_PRM] = "invalid_prm"
+            else:
+                try:
+                    points = await self.hass.async_add_executor_job(
+                        _read_history, self.hass, user_input[CONF_FILE]
+                    )
+                except (HistoryError, OSError, ValueError):
+                    errors[CONF_FILE] = "history_unreadable"
+                else:
+                    result = await coordinator.async_import_history(
+                        prm, points, user_input.get(CONF_OVERWRITE, False)
+                    )
+                    return self.async_abort(
+                        reason="history_imported",
+                        description_placeholders={k: str(v) for k, v in result.items()},
+                    )
+        known = sorted(coordinator.data.last_point) + self.config_entry.options.get(CONF_PRMS, [])
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_FILE): FileSelector(FileSelectorConfig(accept=".csv")),
+                vol.Required(
+                    CONF_PRM,
+                    description={"suggested_value": known[0] if len(set(known)) == 1 else None},
+                ): str,
+                vol.Optional(CONF_OVERWRITE, default=False): BooleanSelector(),
+            }
+        )
+        return self.async_show_form(step_id="import_history", data_schema=schema, errors=errors)
+
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             prms = [part for part in user_input.get(CONF_PRMS, "").replace(",", " ").split()]
-            if all(len(prm) == 14 and prm.isdigit() for prm in prms):
+            if all(_is_prm(prm) for prm in prms):
                 return self.async_create_entry(
                     data={CONF_PRMS: prms, CONF_NO_FILE_DAYS: int(user_input[CONF_NO_FILE_DAYS])}
                 )
@@ -195,4 +255,4 @@ class EnedisOptionsFlow(OptionsFlow):
                 ): NumberSelector(NumberSelectorConfig(min=1, max=60, mode=NumberSelectorMode.BOX)),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="settings", data_schema=schema, errors=errors)

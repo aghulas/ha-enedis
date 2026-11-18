@@ -64,6 +64,9 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
   `import_history` (CSV `debut;kw_moyen` from enedis-mcp), sensor "peak of the last complete day".
   **Not done on purpose**: "overrun yesterday" binary sensor — the meaning of the R64 `DD` values
   (cumulative? reset monthly?) must be read on a real file first.
+- Installed on the school's Home Assistant (2026.11) through the Marketplace (ex-HACS) on 2026-11-18,
+  folder source `/media`, no key yet. History import is also an options-flow step with a file upload
+  (`file_upload` dependency): the media browser refuses CSV files, so that is how a file reaches HA.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
 
 ## Suggested sessions

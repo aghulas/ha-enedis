@@ -19,9 +19,11 @@ Home Assistant host. See `docs/`. License: MIT.
 2. In Home Assistant: *Settings → Devices & services → Add integration → Enedis entreprise*, choose
    where the files arrive (mailbox, local folder or external FTPS server) and paste the key.
 
-History: Enedis only publishes from the subscription date onwards. The action
-`enedis_entreprise.import_history` imports, once, a load curve exported from the Enedis portal (CSV
-with the columns `debut;kw_moyen`); points already received from Enedis are kept unless `overwrite`.
+History: Enedis only publishes from the subscription date onwards. To load what came before, open the
+integration's *Configure* menu → *Import a history file* and upload a load curve exported from the
+Enedis portal (CSV with the columns `debut;kw_moyen`). Points already received from Enedis are kept
+unless you choose to overwrite them. The action `enedis_entreprise.import_history` does the same from
+a file already on the Home Assistant host.
 
 SFTP: the server's host key is recorded at setup and a server showing another key later is refused.
 
