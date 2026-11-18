@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 Buffer = dict[str, list[int]]  # epoch seconds → [value in W, step in seconds]
 HOUR = 3600
@@ -62,6 +63,32 @@ def hour_values(buffer: Buffer, hours: Iterable[int]) -> dict[datetime, HourValu
 def newest(buffer: Buffer) -> datetime:
     """Start of the most recent point (the epoch itself for an empty buffer)."""
     return datetime.fromtimestamp(max(map(int, buffer), default=0), UTC)
+
+
+@dataclass(frozen=True, slots=True)
+class DailyPeak:
+    day: date
+    kw: float
+    at: datetime  # UTC start of the step
+
+
+def last_day_peak(buffer: Buffer, zone: ZoneInfo) -> DailyPeak | None:
+    """Highest step of the most recent local day that is complete (at least 23 h covered)."""
+    if not buffer:
+        return None
+    since = int((newest(buffer) - timedelta(days=4)).timestamp())
+    days: dict[date, list[tuple[int, int, int]]] = {}
+    for key, (value, step) in buffer.items():
+        epoch = int(key)
+        if epoch >= since:
+            local = datetime.fromtimestamp(epoch, zone).date()
+            days.setdefault(local, []).append((value, step, epoch))
+    for day in sorted(days, reverse=True):
+        entries = days[day]
+        if sum(step for _, step, _ in entries) >= 23 * HOUR:
+            value, _, epoch = max(entries, key=lambda entry: (entry[0], -entry[2]))
+            return DailyPeak(day, value / 1000, datetime.fromtimestamp(epoch, UTC))
+    return None
 
 
 def prune(buffer: Buffer, before: datetime) -> None:

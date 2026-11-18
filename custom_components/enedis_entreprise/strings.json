@@ -7,7 +7,8 @@
         "menu_options": {
           "imap": "A mailbox (IMAP)",
           "folder": "A local folder",
-          "ftps": "An external FTPS server"
+          "ftps": "An external FTPS server",
+          "sftp": "An external SFTP server"
         }
       },
       "folder": {
@@ -51,6 +52,23 @@
           "key": "Decryption key"
         },
         "data_description": {
+          "key": "64 hexadecimal characters, from the contact channel in the Enedis business account."
+        }
+      },
+      "sftp": {
+        "title": "External SFTP server",
+        "description": "Server that receives the Enedis files. Files are only downloaded, never deleted.",
+        "data": {
+          "host": "Server",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "directory": "Folder",
+          "host_key": "Host key fingerprint",
+          "key": "Decryption key"
+        },
+        "data_description": {
+          "host_key": "Optional (SHA256:…). Left empty, the key the server shows now is recorded; a server showing another key later is refused.",
           "key": "64 hexadecimal characters, from the contact channel in the Enedis business account."
         }
       }
@@ -100,7 +118,45 @@
       },
       "last_point": {
         "name": "Last measure"
+      },
+      "last_day_peak": {
+        "name": "Peak of the last complete day"
       }
+    }
+  },
+  "services": {
+    "import_history": {
+      "name": "Import history",
+      "description": "One-off import of a load curve exported from the Enedis portal (CSV with the columns debut;kw_moyen) into the statistics.",
+      "fields": {
+        "path": {
+          "name": "File",
+          "description": "Path of the CSV file, in a folder Home Assistant is allowed to read."
+        },
+        "prm": {
+          "name": "PRM",
+          "description": "Meter the file belongs to (14 digits)."
+        },
+        "config_entry_id": {
+          "name": "Configuration",
+          "description": "Needed only when the integration is set up several times."
+        },
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Replace points already received from Enedis publications."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "No loaded configuration matches: give the configuration to use."
+    },
+    "path_not_allowed": {
+      "message": "Home Assistant is not allowed to read this path."
+    },
+    "history_unreadable": {
+      "message": "The history file cannot be read: {error}"
     }
   }
 }

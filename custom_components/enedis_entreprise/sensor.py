@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -44,10 +44,13 @@ async def async_setup_entry(
         """Meters and index series appear as files arrive."""
         entities: list[SensorEntity] = []
         data = coordinator.data
-        for prm in set(data.last_point) | set(data.indexes):
+        for prm in set(data.last_point) | set(data.indexes) | set(data.peaks):
             if prm not in known:
                 known.add(prm)
                 entities.append(LastPointSensor(coordinator, prm))
+            if prm in data.peaks and f"{prm}|peak" not in known:
+                known.add(f"{prm}|peak")
+                entities.append(PeakSensor(coordinator, prm))
             for key in data.indexes.get(prm, {}):
                 if f"{prm}|{key}" not in known:
                     known.add(f"{prm}|{key}")
@@ -120,6 +123,29 @@ class LastPointSensor(_MeterSensor):
     @property
     def native_value(self) -> datetime | None:
         return self.coordinator.data.last_point.get(self._prm)
+
+
+class PeakSensor(_MeterSensor):
+    """Highest 5-minute mean power of the most recent complete day."""
+
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "last_day_peak"
+
+    def __init__(self, coordinator: EnedisCoordinator, prm: str) -> None:
+        super().__init__(coordinator, prm)
+        self._attr_unique_id = f"{prm}_last_day_peak"
+
+    @property
+    def native_value(self) -> float | None:
+        peak = self.coordinator.data.peaks.get(self._prm)
+        return peak.kw if peak else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        peak = self.coordinator.data.peaks.get(self._prm)
+        return {"day": peak.day.isoformat(), "time": peak.at.isoformat()} if peak else {}
 
 
 class IndexSensor(_MeterSensor):

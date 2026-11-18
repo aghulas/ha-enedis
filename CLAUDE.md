@@ -58,7 +58,11 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
 - Session 3 done: `config_flow.py` (menu → folder / imap / ftps, reconfigure keeps secrets left empty,
   options: PRM filter, no-file delay), `sensor.py` (status + one sensor per R64 index series),
   `diagnostics.py` (secrets redacted, PRM numbered), Repairs issues `undecryptable` and `no_file`
-  (raised from the coordinator). Not done: yesterday's peak / overrun sensors, history import.
+  (raised from the coordinator).
+- Then: `sources/sftp.py` (paramiko, host key pinned at first contact), `api/history.py` + action
+  `import_history` (CSV `debut;kw_moyen` from enedis-mcp), sensor "peak of the last complete day".
+  **Not done on purpose**: "overrun yesterday" binary sensor — the meaning of the R64 `DD` values
+  (cumulative? reset monthly?) must be read on a real file first.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
 
 ## Suggested sessions

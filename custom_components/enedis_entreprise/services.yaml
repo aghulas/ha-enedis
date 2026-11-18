@@ -1,0 +1,22 @@
+import_history:
+  fields:
+    path:
+      required: true
+      example: /config/enedis/courbe.csv
+      selector:
+        text:
+    prm:
+      required: true
+      example: "00000000000000"
+      selector:
+        text:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: enedis_entreprise
+    overwrite:
+      required: false
+      default: false
+      selector:
+        boolean:
