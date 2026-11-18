@@ -48,6 +48,15 @@ daily, JSON) and R64 (index, daily, JSON) subscriptions; after the 72 h activati
 e-mail channel and get its decryption key. Until the first real file arrives, build against synthetic
 fixtures; then calibrate on the real file (kept **outside** the repo, `samples/real/` is git-ignored).
 
+## Progress
+
+- Session 1 done: `api/decrypt.py`, `api/r6x.py`, `docs/api.md` (the decryption note is now
+  **Enedis-MOP-CF_080E**, same content and URL as NOI-CF_107E). Open questions: end of `docs/api.md`.
+- Session 2 done: `sources/` (folder, IMAP read-only, FTPS — **SFTP not done**, it needs a dependency),
+  `energy.py` + `stats.py` (hourly statistics, 60-day point buffer for split hours and corrections),
+  `coordinator.py` (state persisted in a `Store`). `config_flow.py` is a placeholder that aborts.
+- Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
+
 ## Suggested sessions
 
 1. Read `docs/api.md`; download and read Enedis note **Enedis-NOI-CF_107E** (decryption of files sent

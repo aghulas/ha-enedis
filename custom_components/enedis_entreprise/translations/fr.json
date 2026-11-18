@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enedis entreprise (R6X)",
+        "description": "La configuration depuis l'interface n'est pas encore disponible."
+      }
+    },
+    "abort": {
+      "not_ready": "Cette intégration ne peut pas encore être configurée depuis l'interface (développement en cours)."
+    }
+  }
+}
