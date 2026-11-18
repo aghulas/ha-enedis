@@ -9,7 +9,12 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.enedis_entreprise.const import DOMAIN
-from custom_components.enedis_entreprise.sources import FtpsSource, ImapSource, SourceError
+from custom_components.enedis_entreprise.sources import (
+    FtpsSource,
+    ImapSource,
+    SftpSource,
+    SourceError,
+)
 
 from . import synthetic as s
 
@@ -34,7 +39,8 @@ def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         if state["fail"]:
             raise SourceError("unreachable")
 
-    for source in (ImapSource, FtpsSource):
+    monkeypatch.setattr(SftpSource, "fingerprint", lambda self: "SHA256:first-seen")
+    for source in (ImapSource, FtpsSource, SftpSource):
         monkeypatch.setattr(source, "check", check)
         monkeypatch.setattr(source, "poll", lambda self, known: [])
     return state
@@ -42,7 +48,7 @@ def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 async def start(hass: HomeAssistant, kind: str) -> dict[str, Any]:
     menu = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert menu["type"] == "menu" and menu["menu_options"] == ["imap", "folder", "ftps"]
+    assert menu["type"] == "menu" and menu["menu_options"] == ["imap", "folder", "sftp", "ftps"]
     form = await hass.config_entries.flow.async_configure(menu["flow_id"], {"next_step_id": kind})
     assert (form["type"], form["step_id"]) == ("form", kind)
     return dict(form)
@@ -89,6 +95,15 @@ async def test_imap_and_ftps(
     await hass.async_block_till_done()
     assert result["type"] == "create_entry"
     assert result["data"] == {"source": "ftps"} | ftps
+
+    # SFTP: the host key shown at first contact is recorded with the entry.
+    form = await start(hass, "sftp")
+    result = await configure(form["flow_id"], ftps | {"port": 22})
+    await hass.async_block_till_done()
+    assert result["type"] == "create_entry"
+    assert result["data"] == {"source": "sftp", "host_key": "SHA256:first-seen"} | ftps | {
+        "port": 22
+    }
 
 
 async def test_reconfigure_keeps_secrets_left_empty(

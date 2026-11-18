@@ -26,6 +26,7 @@ from .api import InvalidKeyError, parse_key
 from .const import (
     CONF_DIRECTORY,
     CONF_HOST,
+    CONF_HOST_KEY,
     CONF_KEY,
     CONF_MAILBOX,
     CONF_NO_FILE_DAYS,
@@ -41,8 +42,9 @@ from .const import (
     SOURCE_FOLDER,
     SOURCE_FTPS,
     SOURCE_IMAP,
+    SOURCE_SFTP,
 )
-from .sources import SourceError
+from .sources import SftpSource, SourceError
 
 SECRETS = (CONF_KEY, CONF_PASSWORD)
 _SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
@@ -51,6 +53,7 @@ TITLES = {
     SOURCE_FOLDER: "Enedis (folder)",
     SOURCE_IMAP: "Enedis (mailbox)",
     SOURCE_FTPS: "Enedis (FTPS)",
+    SOURCE_SFTP: "Enedis (SFTP)",
 }
 
 
@@ -69,7 +72,7 @@ def _schema(kind: str, defaults: dict[str, Any], *, secrets_optional: bool) -> v
         return vol.Schema({field(CONF_PATH): str, field(CONF_KEY, required=False): _SECRET})
     fields: dict[vol.Marker, Any] = {
         field(CONF_HOST): str,
-        field(CONF_PORT, 993 if kind == SOURCE_IMAP else 21): _PORT,
+        field(CONF_PORT, {SOURCE_IMAP: 993, SOURCE_SFTP: 22}.get(kind, 21)): _PORT,
         field(CONF_USERNAME): str,
         field(CONF_PASSWORD, required=secret): _SECRET,
     }
@@ -78,6 +81,8 @@ def _schema(kind: str, defaults: dict[str, Any], *, secrets_optional: bool) -> v
         fields[field(CONF_SENDER, required=False)] = str
     else:
         fields[field(CONF_DIRECTORY, "/")] = str
+    if kind == SOURCE_SFTP:
+        fields[field(CONF_HOST_KEY, required=False)] = str
     fields[field(CONF_KEY, required=secret)] = _SECRET
     return vol.Schema(fields)
 
@@ -99,7 +104,7 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=[SOURCE_IMAP, SOURCE_FOLDER, SOURCE_FTPS]
+            step_id="user", menu_options=[SOURCE_IMAP, SOURCE_FOLDER, SOURCE_SFTP, SOURCE_FTPS]
         )
 
     async def async_step_folder(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -110,6 +115,9 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_ftps(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return await self._async_source(SOURCE_FTPS, user_input)
+
+    async def async_step_sftp(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return await self._async_source(SOURCE_SFTP, user_input)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -153,7 +161,12 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
             except InvalidKeyError:
                 return {CONF_KEY: "invalid_key"}
         try:
-            await self.hass.async_add_executor_job(build_source(data).check)
+            source = build_source(data)
+            if isinstance(source, SftpSource) and not data.get(CONF_HOST_KEY):
+                # First contact: the server's key is recorded and required from now on.
+                data[CONF_HOST_KEY] = await self.hass.async_add_executor_job(source.fingerprint)
+                source = build_source(data)
+            await self.hass.async_add_executor_job(source.check)
         except SourceError:
             return {"base": "cannot_connect"}
         return {}

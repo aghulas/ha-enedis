@@ -10,7 +10,9 @@ from .decrypt import (
     open_publication,
     parse_key,
 )
+from .history import HistoryError, parse_history_csv
 from .r6x import (
+    PARIS,
     CurvePoint,
     CurveSeries,
     FileInfo,
@@ -26,8 +28,10 @@ __all__ = [
     "CurvePoint",
     "CurveSeries",
     "DecryptError",
+    "HistoryError",
     "FileInfo",
     "IndexValue",
+    "PARIS",
     "InvalidKeyError",
     "Publication",
     "PublishedFile",
@@ -39,5 +43,6 @@ __all__ = [
     "open_publication",
     "parse",
     "parse_filename",
+    "parse_history_csv",
     "parse_key",
 ]

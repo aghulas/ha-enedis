@@ -1,9 +1,9 @@
 # Enedis entreprise (R6X) — Home Assistant integration
 
 **Status: work in progress, never run against a real Enedis file yet.** Unofficial, not affiliated
-with Enedis. Done: decryption and R63/R64 parsers; folder, IMAP (read-only) and FTPS sources; hourly
-energy and power statistics; configuration form, sensors, diagnostics and Repairs. Not done: SFTP,
-"yesterday's peak" and overrun sensors, history import, calibration on a real file.
+with Enedis. Done: decryption and R63/R64 parsers; folder, IMAP (read-only), SFTP and FTPS sources;
+hourly energy and power statistics; configuration form, sensors, diagnostics, Repairs; one-off history
+import. Not done: "overrun yesterday" sensor, calibration on a real file.
 
 Imports the data Enedis pushes to business customers through *publications récurrentes* (R63 load curve
 at 5-minute steps for meters > 36 kVA, R64 indexes with max power reached and overruns) into Home
@@ -18,6 +18,12 @@ Home Assistant host. See `docs/`. License: MIT.
    characters).
 2. In Home Assistant: *Settings → Devices & services → Add integration → Enedis entreprise*, choose
    where the files arrive (mailbox, local folder or external FTPS server) and paste the key.
+
+History: Enedis only publishes from the subscription date onwards. The action
+`enedis_entreprise.import_history` imports, once, a load curve exported from the Enedis portal (CSV
+with the columns `debut;kw_moyen`); points already received from Enedis are kept unless `overwrite`.
+
+SFTP: the server's host key is recorded at setup and a server showing another key later is refused.
 
 The mailbox is opened read-only: nothing is deleted, moved or marked as read. **Do not expose an FTP
 server to the Internet on your Home Assistant host** to receive the files: have Enedis deliver to a

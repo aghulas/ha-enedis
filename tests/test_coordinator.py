@@ -18,7 +18,7 @@ from custom_components.enedis_entreprise import build_source
 from custom_components.enedis_entreprise.api import encrypt, parse_key
 from custom_components.enedis_entreprise.const import DOMAIN
 from custom_components.enedis_entreprise.coordinator import EnedisCoordinator
-from custom_components.enedis_entreprise.sources import FtpsSource, ImapSource
+from custom_components.enedis_entreprise.sources import FtpsSource, ImapSource, SftpSource
 
 from . import synthetic as s
 
@@ -265,3 +265,5 @@ def test_build_source() -> None:
     )
     assert isinstance(build_source({"source": "imap"} | common), ImapSource)
     assert isinstance(build_source({"source": "ftps", "port": "990"} | common), FtpsSource)
+    assert isinstance(build_source({"source": "sftp", "host_key": "SHA256:x"} | common), SftpSource)
+    assert isinstance(build_source({"source": "sftp"} | common), SftpSource)

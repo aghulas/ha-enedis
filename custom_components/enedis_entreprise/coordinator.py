@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import (
+    PARIS,
     DecryptError,
     IndexValue,
     Publication,
@@ -32,7 +33,7 @@ from .const import (
     STORAGE_VERSION,
     UPDATE_INTERVAL,
 )
-from .energy import hour_values, merge, newest, prune
+from .energy import DailyPeak, hour_values, last_day_peak, merge, newest, prune
 from .sources import Source, SourceError, SourceFile
 from .stats import async_import_hours
 
@@ -53,6 +54,7 @@ class EnedisData:
     natures: dict[str, dict[str, int]] = field(default_factory=dict)  # per PRM, last curve file
     indexes: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)  # per PRM
     errors: dict[str, int] = field(default_factory=dict)  # problems seen during the last poll
+    peaks: dict[str, DailyPeak] = field(default_factory=dict)  # per PRM, last complete day
 
 
 def index_key(index: IndexValue) -> str:
@@ -147,6 +149,15 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
         for file in sorted(files, key=created):
             changed |= await self._async_process(file, errors, touched)
 
+        await self._async_import(touched)
+        if changed:
+            await self._async_save()
+        self._publish(errors)
+        self._update_issues(errors)
+        return self._state
+
+    async def _async_import(self, touched: dict[str, set[int]]) -> None:
+        """Write the statistics of the hours that changed, then trim the point buffers."""
         for series, hours in touched.items():
             prm, _, metier = series.partition("|")
             values = hour_values(self._points[series], hours)
@@ -154,10 +165,16 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
         for buffer in self._points.values():
             # Relative to the newest point, not to today: files may be imported long after.
             prune(buffer, newest(buffer) - POINT_RETENTION)
-        if changed:
-            await self._async_save()
 
+    def _publish(self, errors: dict[str, int]) -> None:
+        """A new EnedisData object, so that listeners see the change."""
         state = self._state
+        peaks = {}
+        for series, buffer in self._points.items():
+            prm, _, metier = series.partition("|")
+            peak = last_day_peak(buffer, PARIS) if metier == "CONS" else None
+            if peak:
+                peaks[prm] = peak
         self._state = EnedisData(
             last_file=state.last_file,
             files_processed=state.files_processed,
@@ -165,9 +182,30 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
             natures=state.natures,
             indexes=state.indexes,
             errors=errors,
+            peaks=peaks,
         )
-        self._update_issues(errors)
-        return self._state
+
+    async def async_import_history(
+        self, prm: str, points: list[tuple[datetime, int, int]], overwrite: bool = False
+    ) -> dict[str, Any]:
+        """One-off import of consumption points (UTC start, W, step seconds) for one meter.
+
+        Unless `overwrite`, points already received from Enedis publications are kept.
+        """
+        buffer = self._points.setdefault(f"{prm}|CONS", {})
+        if not overwrite:
+            points = [point for point in points if str(int(point[0].timestamp())) not in buffer]
+        hours = merge(buffer, points)
+        if points:
+            latest = max(point[0] for point in points)
+            previous = self._state.last_point.get(prm)
+            if previous is None or latest > previous:
+                self._state.last_point[prm] = latest
+        await self._async_import({f"{prm}|CONS": hours} if hours else {})
+        await self._async_save()
+        self._publish(self._state.errors)
+        self.async_set_updated_data(self._state)
+        return {"points": len(points), "hours": len(hours)}
 
     def _update_issues(self, errors: dict[str, int]) -> None:
         """Repairs: files that cannot be decrypted, and no file received for too long."""

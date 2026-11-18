@@ -312,3 +312,131 @@ def test_checks_download_nothing(tmp_path: Path, imap: type[FakeImap], ftp: type
     ftp.error = TimeoutError()
     with pytest.raises(SourceError):
         FtpsSource("ftp.example.invalid", "user", PASSWORD).check()
+
+
+# --- SFTP ----------------------------------------------------------------------------------------
+
+
+class FakeKey:
+    def asbytes(self) -> bytes:
+        return b"server-host-key"
+
+
+# What `ssh-keygen -l` would print for FakeKey.
+FINGERPRINT = "SHA256:" + __import__("base64").b64encode(
+    __import__("hashlib").sha256(b"server-host-key").digest()
+).decode().rstrip("=")
+
+
+class FakeAttr:
+    def __init__(self, filename: str, size: int, mode: int = 0o100644) -> None:
+        self.filename, self.st_size, self.st_mode = filename, size, mode
+
+
+class FakeSftpClient:
+    def __init__(self, files: dict[str, bytes], log: list[str]) -> None:
+        self.files, self.log = files, log
+
+    def chdir(self, directory: str) -> None:
+        self.log.append(f"chdir {directory}")
+
+    def listdir_attr(self) -> list[FakeAttr]:
+        return [FakeAttr(name, len(data)) for name, data in self.files.items()] + [
+            FakeAttr(s.R64_NAME + ".d", 0, 0o040755)
+        ]
+
+    def getfo(self, name: str, buffer: Any) -> None:
+        self.log.append(f"get {name}")
+        buffer.write(self.files[name])
+
+
+class FakeTransport:
+    files: dict[str, bytes] = {}
+    error: Exception | None = None
+    no_session = False
+    log: list[str] = []
+
+    def __init__(self, address: tuple[str, int]) -> None:
+        self.log.append("connect")
+
+    def start_client(self, timeout: float | None = None) -> None:
+        if self.error:
+            raise self.error
+
+    def get_remote_server_key(self) -> FakeKey:
+        return FakeKey()
+
+    def auth_password(self, username: str, password: str) -> None:
+        self.log.append("auth")
+
+    def close(self) -> None:
+        self.log.append("close")
+
+
+@pytest.fixture
+def sftp(monkeypatch: pytest.MonkeyPatch) -> type[FakeTransport]:
+    from custom_components.enedis_entreprise.sources import sftp as sftp_module
+
+    class Fresh(FakeTransport):
+        files = {}
+        log = []
+
+    def from_transport(transport: Fresh) -> FakeSftpClient | None:
+        return None if transport.no_session else FakeSftpClient(transport.files, transport.log)
+
+    monkeypatch.setattr(sftp_module.paramiko, "Transport", Fresh)
+    monkeypatch.setattr(sftp_module.paramiko.SFTPClient, "from_transport", from_transport)
+    return Fresh
+
+
+def test_sftp(sftp: type[FakeTransport]) -> None:
+    from custom_components.enedis_entreprise.sources import SftpSource
+
+    sftp.files = {s.R63_ARCHIVE: b"abc", "readme.txt": b"no", s.R64_NAME: b"wxyz"}
+    source = SftpSource("sftp.example.invalid", "user", PASSWORD, directory="/in")
+    assert source.fingerprint() == FINGERPRINT
+    # Reading the fingerprint never sends the password.
+    assert sftp.log == ["connect", "close"]
+
+    pinned = SftpSource(
+        "sftp.example.invalid", "user", PASSWORD, directory="/in", host_key=FINGERPRINT
+    )
+    pinned.check()
+    files = pinned.poll(set())
+    assert sorted((f.ident, f.data) for f in files) == [
+        (f"sftp:{s.R63_ARCHIVE}:3", b"abc"),
+        (f"sftp:{s.R64_NAME}:4", b"wxyz"),
+    ]
+    assert pinned.poll({f.ident for f in files}) == []
+    # Only downloads: no remove, rename or write.
+    assert {entry.split()[0] for entry in sftp.log} == {"connect", "auth", "chdir", "get", "close"}
+
+
+def test_sftp_refuses_another_host_key_before_sending_the_password(
+    sftp: type[FakeTransport],
+) -> None:
+    from custom_components.enedis_entreprise.sources import SftpSource
+
+    source = SftpSource("sftp.example.invalid", "user", PASSWORD, host_key="SHA256:other")
+    with pytest.raises(SourceError, match="host key changed"):
+        source.poll(set())
+    assert sftp.log == ["connect", "close"]
+
+
+def test_sftp_errors(sftp: type[FakeTransport]) -> None:
+    import paramiko
+
+    from custom_components.enedis_entreprise.sources import SftpSource
+
+    source = SftpSource("sftp.example.invalid", "user", PASSWORD)
+    sftp.no_session = True
+    with pytest.raises(SourceError, match="session"):
+        source.check()
+    sftp.error = paramiko.AuthenticationException(f"bad {PASSWORD}")
+    with pytest.raises(SourceError) as err:
+        source.check()
+    assert PASSWORD not in str(err.value)
+    sftp.error = TimeoutError()
+    with pytest.raises(SourceError, match="TimeoutError"):
+        source.check()
+    assert sftp.log[-1] == "close"
