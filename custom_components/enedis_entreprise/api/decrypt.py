@@ -22,6 +22,7 @@ ZIP_MAGIC = b"PK\x03\x04"
 CSV_START = b"Identifiant PRM"
 BOM = b"\xef\xbb\xbf"
 DATA_EXTENSIONS = (".json", ".csv")
+_CONTROL = frozenset(range(32)) - {9, 10, 13}
 # Guards against a hostile or corrupt archive (a daily R63 for one PRM is a few hundred kB).
 MAX_MEMBERS = 200
 MAX_UNCOMPRESSED = 200 * 1024 * 1024
@@ -63,7 +64,9 @@ def looks_clear(data: bytes) -> bool:
     if data.startswith(ZIP_MAGIC):
         return True
     text = data.removeprefix(BOM).lstrip()
-    return text.startswith((b"{", CSV_START))
+    # A wrong key gives random bytes: about 1 in 250 would start with "{". Real JSON/CSV text
+    # has no control character besides tab and line ends, random bytes nearly always do.
+    return text.startswith((b"{", CSV_START)) and not any(b in _CONTROL for b in text)
 
 
 def _unpad(data: bytes) -> bytes | None:

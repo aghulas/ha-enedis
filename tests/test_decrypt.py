@@ -54,9 +54,25 @@ def test_round_trip_and_random_iv() -> None:
 
 
 def test_wrong_key() -> None:
-    encrypted = encrypt(s.as_json(s.r63_document()), KEY)
+    encrypted = encrypt(s.as_json(s.r63_document()), KEY, bytes(range(16)))
     with pytest.raises(WrongKeyError):
         decrypt(encrypted, OTHER_KEY)
+
+
+def test_wrong_key_whose_garbage_starts_like_json() -> None:
+    """Regression (CI flake): random bytes beginning with "{" were taken for a JSON file."""
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    blocks = bytes(range(64))
+    raw = Cipher(algorithms.AES(OTHER_KEY), modes.ECB()).decryptor().update(blocks[:16])
+    iv = bytes([raw[0] ^ ord("{")]) + bytes(15)
+    with pytest.raises(WrongKeyError):
+        decrypt(iv + blocks, OTHER_KEY)
+
+
+def test_binary_content_is_not_taken_for_text() -> None:
+    assert not decrypt_module.looks_clear(b'{"a":\x00}')
+    assert decrypt_module.looks_clear(b'{"a":\t1}\r\n')
 
 
 def test_file_without_padding_is_accepted() -> None:
