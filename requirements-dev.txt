@@ -4,3 +4,5 @@ pytest
 pytest-cov
 pytest-homeassistant-custom-component
 pip-audit
+# Runtime dependency of the integration (shipped with Home Assistant itself).
+cryptography
