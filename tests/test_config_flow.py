@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,16 @@ async def start(hass: HomeAssistant, kind: str) -> dict[str, Any]:
     assert menu["type"] == "menu" and menu["menu_options"] == ["imap", "folder", "sftp", "ftps"]
     form = await hass.config_entries.flow.async_configure(menu["flow_id"], {"next_step_id": kind})
     assert (form["type"], form["step_id"]) == ("form", kind)
+    return dict(form)
+
+
+async def open_options(hass: HomeAssistant, entry: MockConfigEntry, step: str) -> dict[str, Any]:
+    menu = await hass.config_entries.options.async_init(entry.entry_id)
+    assert menu["type"] == "menu" and menu["menu_options"] == ["settings", "import_history"]
+    form = await hass.config_entries.options.async_configure(
+        menu["flow_id"], {"next_step_id": step}
+    )
+    assert (form["type"], form["step_id"]) == ("form", step)
     return dict(form)
 
 
@@ -139,8 +150,7 @@ async def test_options(recorder_mock: Any, hass: HomeAssistant, tmp_path: Path) 
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    form = await hass.config_entries.options.async_init(entry.entry_id)
-    assert form["step_id"] == "init"
+    form = await open_options(hass, entry, "settings")
     result = await hass.config_entries.options.async_configure(
         form["flow_id"], {"prms": "1234", "no_file_days": 5}
     )
@@ -154,6 +164,57 @@ async def test_options(recorder_mock: Any, hass: HomeAssistant, tmp_path: Path) 
     # Saving options reloads the entry with them.
     assert entry.state is ConfigEntryState.LOADED
 
-    form = await hass.config_entries.options.async_init(entry.entry_id)
+    form = await open_options(hass, entry, "settings")
     result = await hass.config_entries.options.async_configure(form["flow_id"], {"no_file_days": 3})
     assert entry.options == {"prms": [], "no_file_days": 3}
+
+
+async def test_import_history_from_the_options(
+    recorder_mock: Any, hass: HomeAssistant, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from contextlib import contextmanager
+
+    from custom_components.enedis_entreprise import config_flow
+
+    from .test_coordinator import rows
+    from .test_history import export
+
+    # The file selector hands over the id of the upload (a UUID), not a path.
+    good, bad = "0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210"
+    uploads = {
+        good: export(datetime(2026, 2, 28, 23, tzinfo=UTC), [6.0] * 288),
+        bad: "not a history file\n",
+    }
+
+    @contextmanager
+    def uploaded(hass: HomeAssistant, file_id: str) -> Any:
+        path = tmp_path / f"{file_id}.csv"
+        path.write_text(uploads[file_id])
+        yield path
+
+    monkeypatch.setattr(config_flow, "process_uploaded_file", uploaded)
+    source = tmp_path / "source"
+    source.mkdir()
+    entry = MockConfigEntry(domain=DOMAIN, data={"source": "folder", "path": str(source)})
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    configure = hass.config_entries.options.async_configure
+
+    form = await open_options(hass, entry, "import_history")
+    result = await configure(form["flow_id"], {"file": good, "prm": "123"})
+    assert result["errors"] == {"prm": "invalid_prm"}
+    result = await configure(form["flow_id"], {"file": bad, "prm": s.PRM})
+    assert result["errors"] == {"file": "history_unreadable"}
+    result = await configure(form["flow_id"], {"file": good, "prm": f" {s.PRM} "})
+    assert (result["type"], result["reason"]) == ("abort", "history_imported")
+    assert result["description_placeholders"] == {"points": "288", "hours": "24"}
+    energy = await rows(hass)
+    assert len(energy) == 24 and energy[-1]["sum"] == pytest.approx(144.0)
+    # Importing does not touch the options, so the entry is not reloaded.
+    assert entry.options == {}
+
+    # The meter is now known: it is proposed in the form.
+    form = await open_options(hass, entry, "import_history")
+    marker = next(key for key in form["data_schema"].schema if key == "prm")
+    assert marker.description == {"suggested_value": s.PRM}

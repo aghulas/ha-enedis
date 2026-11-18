@@ -85,6 +85,12 @@
   "options": {
     "step": {
       "init": {
+        "menu_options": {
+          "settings": "Settings",
+          "import_history": "Import a history file"
+        }
+      },
+      "settings": {
         "data": {
           "prms": "Meters to import",
           "no_file_days": "Alert after this many days without a file"
@@ -92,10 +98,26 @@
         "data_description": {
           "prms": "PRM numbers (14 digits) separated by commas. Empty: every meter found in the files."
         }
+      },
+      "import_history": {
+        "title": "Import a history file",
+        "description": "One-off import of a load curve exported from the Enedis portal (CSV with the columns debut;kw_moyen). Points already received from Enedis are kept unless you choose to overwrite them.",
+        "data": {
+          "file": "CSV file",
+          "prm": "PRM",
+          "overwrite": "Overwrite points already received"
+        },
+        "data_description": {
+          "prm": "Meter the file belongs to (14 digits)."
+        }
       }
     },
     "error": {
-      "invalid_prm": "A PRM is 14 digits."
+      "invalid_prm": "A PRM is 14 digits.",
+      "history_unreadable": "The file is not a history export (first line: debut;kw_moyen)."
+    },
+    "abort": {
+      "history_imported": "History imported: {points} points, {hours} hours written to the statistics."
     }
   },
   "issues": {

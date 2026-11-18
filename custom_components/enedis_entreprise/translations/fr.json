@@ -85,6 +85,12 @@
   "options": {
     "step": {
       "init": {
+        "menu_options": {
+          "settings": "Réglages",
+          "import_history": "Importer un fichier d'historique"
+        }
+      },
+      "settings": {
         "data": {
           "prms": "Compteurs à importer",
           "no_file_days": "Alerter après ce nombre de jours sans fichier"
@@ -92,10 +98,26 @@
         "data_description": {
           "prms": "Numéros de PRM (14 chiffres) séparés par des virgules. Vide : tous les compteurs trouvés dans les fichiers."
         }
+      },
+      "import_history": {
+        "title": "Importer un fichier d'historique",
+        "description": "Import ponctuel d'une courbe de charge exportée du portail Enedis (CSV avec les colonnes debut;kw_moyen). Les points déjà reçus d'Enedis sont conservés, sauf si vous choisissez de les écraser.",
+        "data": {
+          "file": "Fichier CSV",
+          "prm": "PRM",
+          "overwrite": "Écraser les points déjà reçus"
+        },
+        "data_description": {
+          "prm": "Compteur auquel appartient le fichier (14 chiffres)."
+        }
       }
     },
     "error": {
-      "invalid_prm": "Un PRM fait 14 chiffres."
+      "invalid_prm": "Un PRM fait 14 chiffres.",
+      "history_unreadable": "Ce fichier n'est pas un export d'historique (première ligne : debut;kw_moyen)."
+    },
+    "abort": {
+      "history_imported": "Historique importé : {points} points, {hours} heures écrites dans les statistiques."
     }
   },
   "issues": {
