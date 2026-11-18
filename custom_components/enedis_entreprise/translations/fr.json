@@ -3,11 +3,104 @@
     "step": {
       "user": {
         "title": "Enedis entreprise (R6X)",
-        "description": "La configuration depuis l'interface n'est pas encore disponible."
+        "description": "Où arrivent les fichiers envoyés par Enedis ?",
+        "menu_options": {
+          "imap": "Une boîte mail (IMAP)",
+          "folder": "Un dossier local",
+          "ftps": "Un serveur FTPS externe"
+        }
+      },
+      "folder": {
+        "title": "Dossier local",
+        "description": "Dossier qui reçoit les fichiers Enedis. Rien n'y est supprimé ni déplacé.",
+        "data": {
+          "path": "Dossier",
+          "key": "Clé de déchiffrement"
+        },
+        "data_description": {
+          "path": "Par exemple /share/enedis",
+          "key": "64 caractères hexadécimaux, à copier depuis le canal de contact du compte client entreprise Enedis. Laisser vide si les fichiers sont déjà déchiffrés."
+        }
+      },
+      "imap": {
+        "title": "Boîte mail (IMAP)",
+        "description": "Boîte qui reçoit les courriels d'Enedis. Elle est ouverte en lecture seule : rien n'est supprimé, déplacé ni marqué comme lu.",
+        "data": {
+          "host": "Serveur",
+          "port": "Port",
+          "username": "Identifiant",
+          "password": "Mot de passe",
+          "mailbox": "Dossier",
+          "sender": "Filtre sur l'expéditeur",
+          "key": "Clé de déchiffrement"
+        },
+        "data_description": {
+          "sender": "Facultatif : ne lire que les messages de cette adresse.",
+          "key": "64 caractères hexadécimaux, à copier depuis le canal de contact du compte client entreprise Enedis."
+        }
+      },
+      "ftps": {
+        "title": "Serveur FTPS externe",
+        "description": "Serveur qui reçoit les fichiers Enedis. Les fichiers sont seulement téléchargés, jamais supprimés.",
+        "data": {
+          "host": "Serveur",
+          "port": "Port",
+          "username": "Identifiant",
+          "password": "Mot de passe",
+          "directory": "Dossier",
+          "key": "Clé de déchiffrement"
+        },
+        "data_description": {
+          "key": "64 caractères hexadécimaux, à copier depuis le canal de contact du compte client entreprise Enedis."
+        }
       }
     },
+    "error": {
+      "invalid_key": "La clé doit faire 64 caractères hexadécimaux.",
+      "cannot_connect": "La source est injoignable. Vérifiez l'adresse, les identifiants et le dossier."
+    },
     "abort": {
-      "not_ready": "Cette intégration ne peut pas encore être configurée depuis l'interface (développement en cours)."
+      "already_configured": "Cette source est déjà configurée.",
+      "reconfigure_successful": "La configuration a été mise à jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "prms": "Compteurs à importer",
+          "no_file_days": "Alerter après ce nombre de jours sans fichier"
+        },
+        "data_description": {
+          "prms": "Numéros de PRM (14 chiffres) séparés par des virgules. Vide : tous les compteurs trouvés dans les fichiers."
+        }
+      }
+    },
+    "error": {
+      "invalid_prm": "Un PRM fait 14 chiffres."
+    }
+  },
+  "issues": {
+    "undecryptable": {
+      "title": "Fichiers Enedis indéchiffrables",
+      "description": "{count} fichier(s) n'ont pas pu être déchiffrés. La clé du canal de contact a probablement changé : copiez la clé actuelle depuis le compte client entreprise Enedis et reconfigurez l'intégration. Les fichiers sont conservés et seront relus."
+    },
+    "no_file": {
+      "title": "Aucun fichier Enedis reçu",
+      "description": "Aucun fichier reçu depuis {count} jours. Vérifiez que les publications récurrentes sont toujours actives dans le compte client entreprise Enedis et que le canal de contact fonctionne."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_file": {
+        "name": "Dernier fichier traité"
+      },
+      "files_processed": {
+        "name": "Fichiers traités"
+      },
+      "last_point": {
+        "name": "Dernière mesure"
+      }
     }
   }
 }

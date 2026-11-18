@@ -289,3 +289,26 @@ def test_ftps_errors(ftp: type[FakeFtp]) -> None:
     with pytest.raises(SourceError, match="TimeoutError"):
         source.poll(set())
     assert FakeFtp.last.commands[-1] == "close"
+
+
+# --- connection checks (config flow) --------------------------------------------------------------
+
+
+def test_checks_download_nothing(tmp_path: Path, imap: type[FakeImap], ftp: type[FakeFtp]) -> None:
+    FolderSource(tmp_path).check()
+    with pytest.raises(SourceError):
+        FolderSource(tmp_path / "absent").check()
+
+    imap.messages = {"1": mail({s.R63_ARCHIVE: b"x"})}
+    ImapSource("mail.example.invalid", "user", PASSWORD).check()
+    assert [c[0] for c in FakeImap.last.commands] == ["SELECT", "LOGOUT"]
+    imap.fail_login = True
+    with pytest.raises(SourceError):
+        ImapSource("mail.example.invalid", "user", PASSWORD).check()
+
+    ftp.files = {s.R63_ARCHIVE: b"abc"}
+    FtpsSource("ftp.example.invalid", "user", PASSWORD).check()
+    assert FakeFtp.last.commands == ["connect", "login", "prot_p", "cwd /", "quit"]
+    ftp.error = TimeoutError()
+    with pytest.raises(SourceError):
+        FtpsSource("ftp.example.invalid", "user", PASSWORD).check()

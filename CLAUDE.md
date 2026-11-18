@@ -54,7 +54,11 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
   **Enedis-MOP-CF_080E**, same content and URL as NOI-CF_107E). Open questions: end of `docs/api.md`.
 - Session 2 done: `sources/` (folder, IMAP read-only, FTPS — **SFTP not done**, it needs a dependency),
   `energy.py` + `stats.py` (hourly statistics, 60-day point buffer for split hours and corrections),
-  `coordinator.py` (state persisted in a `Store`). `config_flow.py` is a placeholder that aborts.
+  `coordinator.py` (state persisted in a `Store`).
+- Session 3 done: `config_flow.py` (menu → folder / imap / ftps, reconfigure keeps secrets left empty,
+  options: PRM filter, no-file delay), `sensor.py` (status + one sensor per R64 index series),
+  `diagnostics.py` (secrets redacted, PRM numbered), Repairs issues `undecryptable` and `no_file`
+  (raised from the coordinator). Not done: yesterday's peak / overrun sensors, history import.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
 
 ## Suggested sessions

@@ -17,6 +17,8 @@ CONF_MAILBOX = "mailbox"
 CONF_SENDER = "sender"
 CONF_DIRECTORY = "directory"
 CONF_PRMS = "prms"
+CONF_NO_FILE_DAYS = "no_file_days"
+DEFAULT_NO_FILE_DAYS = 3
 
 SOURCE_FOLDER = "folder"
 SOURCE_IMAP = "imap"

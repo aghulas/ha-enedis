@@ -1,15 +1,27 @@
 # Enedis entreprise (R6X) — Home Assistant integration
 
-**Status: work in progress — not usable yet** (no configuration form). Unofficial, not affiliated
-with Enedis. Done so far: decryption and R63/R64 parsers; folder, IMAP (read-only) and FTPS sources;
-import of the load curve into hourly energy and power statistics. Not done: configuration from the
-interface, sensors, Repairs, SFTP, calibration on a real Enedis file.
+**Status: work in progress, never run against a real Enedis file yet.** Unofficial, not affiliated
+with Enedis. Done: decryption and R63/R64 parsers; folder, IMAP (read-only) and FTPS sources; hourly
+energy and power statistics; configuration form, sensors, diagnostics and Repairs. Not done: SFTP,
+"yesterday's peak" and overrun sensors, history import, calibration on a real file.
 
 Imports the data Enedis pushes to business customers through *publications récurrentes* (R63 load curve
 at 5-minute steps for meters > 36 kVA, R64 indexes with max power reached and overruns) into Home
 Assistant's statistics and Energy dashboard. Files are read from a mailbox (IMAP), a local folder or an
 external SFTP/FTPS host — no login to the Enedis portal, no captcha, and no FTP server exposed on your
 Home Assistant host. See `docs/`. License: MIT.
+
+## Setup
+
+1. In the Enedis business account, subscribe to the recurring publications R63 (load curve) and R64
+   (index), JSON format, then create an e-mail or FTP contact channel and copy its key (64 hexadecimal
+   characters).
+2. In Home Assistant: *Settings → Devices & services → Add integration → Enedis entreprise*, choose
+   where the files arrive (mailbox, local folder or external FTPS server) and paste the key.
+
+The mailbox is opened read-only: nothing is deleted, moved or marked as read. **Do not expose an FTP
+server to the Internet on your Home Assistant host** to receive the files: have Enedis deliver to a
+mailbox or to an external FTP account, and let the integration pull from there.
 
 ---
 

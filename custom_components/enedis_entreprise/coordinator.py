@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -24,7 +25,13 @@ from .api import (
     parse,
     parse_filename,
 )
-from .const import DOMAIN, POINT_RETENTION, STORAGE_VERSION, UPDATE_INTERVAL
+from .const import (
+    DEFAULT_NO_FILE_DAYS,
+    DOMAIN,
+    POINT_RETENTION,
+    STORAGE_VERSION,
+    UPDATE_INTERVAL,
+)
 from .energy import hour_values, merge, newest, prune
 from .sources import Source, SourceError, SourceFile
 from .stats import async_import_hours
@@ -68,6 +75,7 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
         source: Source,
         key: bytes | None,
         prms: set[str] | None = None,
+        no_file_days: int = DEFAULT_NO_FILE_DAYS,
     ) -> None:
         super().__init__(
             hass, _LOGGER, config_entry=entry, name=DOMAIN, update_interval=UPDATE_INTERVAL
@@ -75,6 +83,9 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
         self._source = source
         self._key = key
         self._prms = prms or None
+        self._no_file_after = timedelta(days=no_file_days)
+        self._entry_id = entry.entry_id
+        self._since = dt_util.utcnow()
         self._store: Store[dict[str, Any]] = Store(
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}"
         )
@@ -87,6 +98,8 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
         stored = await self._store.async_load() or {}
         self._processed = stored.get("processed", {})
         self._points = stored.get("points", {})
+        if stored.get("since"):
+            self._since = datetime.fromisoformat(stored["since"])
         last_file = stored.get("last_file")
         self._state = EnedisData(
             last_file=datetime.fromisoformat(last_file) if last_file else None,
@@ -106,6 +119,7 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
             {
                 "processed": self._processed,
                 "points": self._points,
+                "since": self._since.isoformat(),
                 "last_file": state.last_file.isoformat() if state.last_file else None,
                 "files_processed": state.files_processed,
                 "last_point": {prm: when.isoformat() for prm, when in state.last_point.items()},
@@ -117,6 +131,7 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
     async def _async_update_data(self) -> EnedisData:
         if not self._loaded:
             await self._async_load()
+            await self._async_save()  # remembers since when files are expected
         try:
             files = await self.hass.async_add_executor_job(self._source.poll, set(self._processed))
         except SourceError as err:
@@ -151,7 +166,36 @@ class EnedisCoordinator(DataUpdateCoordinator[EnedisData]):
             indexes=state.indexes,
             errors=errors,
         )
+        self._update_issues(errors)
         return self._state
+
+    def _update_issues(self, errors: dict[str, int]) -> None:
+        """Repairs: files that cannot be decrypted, and no file received for too long."""
+        undecryptable = errors.get(ERROR_WRONG_KEY, 0) + errors.get(ERROR_UNDECRYPTABLE, 0)
+        self._set_issue("undecryptable", bool(undecryptable), ir.IssueSeverity.ERROR, undecryptable)
+        quiet = dt_util.utcnow() - (self._state.last_file or self._since)
+        self._set_issue(
+            "no_file", quiet > self._no_file_after, ir.IssueSeverity.WARNING, quiet.days
+        )
+
+    def _set_issue(self, kind: str, active: bool, severity: ir.IssueSeverity, count: int) -> None:
+        issue_id = f"{kind}_{self._entry_id}"
+        if active:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=severity,
+                translation_key=kind,
+                translation_placeholders={"count": str(count)},
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+    def clear_issues(self) -> None:
+        for kind in ("undecryptable", "no_file"):
+            ir.async_delete_issue(self.hass, DOMAIN, f"{kind}_{self._entry_id}")
 
     async def _async_process(
         self, file: SourceFile, errors: dict[str, int], touched: dict[str, set[int]]
