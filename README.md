@@ -1,6 +1,9 @@
 # Enedis entreprise (R6X) — Home Assistant integration
 
-**Status: scaffolding — not usable yet.** Unofficial, not affiliated with Enedis.
+**Status: work in progress — not usable yet** (no configuration form). Unofficial, not affiliated
+with Enedis. Done so far: decryption and R63/R64 parsers; folder, IMAP (read-only) and FTPS sources;
+import of the load curve into hourly energy and power statistics. Not done: configuration from the
+interface, sensors, Repairs, SFTP, calibration on a real Enedis file.
 
 Imports the data Enedis pushes to business customers through *publications récurrentes* (R63 load curve
 at 5-minute steps for meters > 36 kVA, R64 indexes with max power reached and overruns) into Home

@@ -1,0 +1,7 @@
+{
+  "config": {
+    "abort": {
+      "not_ready": "This integration cannot be configured from the interface yet (work in progress)."
+    }
+  }
+}

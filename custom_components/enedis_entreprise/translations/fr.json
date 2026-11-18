@@ -1,0 +1,7 @@
+{
+  "config": {
+    "abort": {
+      "not_ready": "Cette intégration ne peut pas encore être configurée depuis l'interface (développement en cours)."
+    }
+  }
+}
