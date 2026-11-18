@@ -43,9 +43,10 @@ FTP** — fully automatable and local.
 
 ## Prerequisite on the user side (blocking for real tests)
 
-The user must, as administrator of the Enedis business account: create the R63 (load curve, BEST,
-daily, JSON) and R64 (index, daily, JSON) subscriptions; after the 72 h activation delay, create the
-e-mail channel and get its decryption key. Until the first real file arrives, build against synthetic
+Subscriptions were created on 2026-11-18, all JSON: index daily, raw load curve daily, corrected load
+curve weekly (the account offers no daily corrected curve — see `docs/api.md`). An e-mail channel
+already exists in the account. Still to do by the user after the 72 h activation delay: link each
+subscription to the channel ("par e-mail/serveur FTP") and copy the channel's decryption key. Until the first real file arrives, build against synthetic
 fixtures; then calibrate on the real file (kept **outside** the repo, `samples/real/` is git-ignored).
 
 ## Progress
