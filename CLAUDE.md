@@ -45,8 +45,10 @@ FTP** — fully automatable and local.
 
 Subscriptions were created on 2026-11-18, all JSON: index daily, raw load curve daily, corrected load
 curve weekly (the account offers no daily corrected curve — see `docs/api.md`). An e-mail channel
-already exists in the account. Still to do by the user after the 72 h activation delay: link each
-subscription to the channel ("par e-mail/serveur FTP") and copy the channel's decryption key. Until the first real file arrives, build against synthetic
+already exists in the account; the three subscriptions were linked to it on 2026-11-21. Still to do by
+the user: copy the channel's decryption key into the integration (never into the repo) once the
+e-mails arrive. First real files (downloaded from the account, plain zips) are in
+`samples/real/2026-11-21/`; what they showed is in `docs/api.md` ("Seen on the first real files"). Until the first real file arrives, build against synthetic
 fixtures; then calibrate on the real file (kept **outside** the repo, `samples/real/` is git-ignored).
 
 ## Progress
@@ -67,6 +69,10 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
 - Installed on the school's Home Assistant (2026.11) through the Marketplace (ex-HACS) on 2026-11-18,
   folder source `/media`, no key yet. History import is also an options-flow step with a file upload
   (`file_upload` dependency): the media browser refuses CSV files, so that is how a file reaches HA.
+- Calibration on the first real files (2026-11-21): archive names differ from the guide
+  (`parse_filename` now accepts both); content parsed as is; a full local run gave 24 hourly rows for
+  the day. Still open: e-mail attachment (encrypted?), sender/subject for IMAP, `DD` semantics, kWh
+  check against the portal.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
 
 ## Suggested sessions

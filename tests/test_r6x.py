@@ -30,6 +30,29 @@ def test_filenames() -> None:
     assert (outer.siren, outer.sequence, outer.key) == (s.SIREN, None, None)
 
     assert parse_filename("facture.pdf") is None
+    assert parse_filename("Enedis_R63A_Q_CdC_20260302063000.json") is None
+
+
+def test_filenames_as_really_published() -> None:
+    """Names seen on the first real files (identifiers replaced): upper case, SIREN and sequence
+    number both present in the archive name, plus a publication id for the load curve."""
+    curve = parse_filename("ENEDIS_R63A_Q_CdC_123456789_654321_000000000_00003_20261121021821.zip")
+    assert curve is not None
+    assert (curve.code_flux, curve.kind, curve.id_demande) == ("R63A", "CdC", "123456789")
+    assert (curve.siren, curve.sequence, curve.extension) == ("000000000", 3, "zip")
+    assert curve.created == datetime(2026, 11, 21, 2, 18, 21)
+
+    index = parse_filename("ENEDIS_R64A_Q_INDEX_123456780_000000000_00003_20261121040346.zip")
+    assert index is not None
+    assert (index.code_flux, index.kind, index.siren, index.sequence) == (
+        "R64A", "INDEX", "000000000", 3,
+    )  # fmt: skip
+
+    # The file inside carries the same request id and sequence number: same identity.
+    inner = parse_filename("ENEDIS_R63A_Q_CdC_123456789_00003_20261121021821.json")
+    assert inner is not None
+    assert (inner.siren, inner.sequence, inner.key) == (None, 3, "R63A_123456789_00003")
+    assert inner.key == curve.key
     assert parse_filename("Enedis_R63A_Q_CdC_X_00001_20269999999999.json") is None
 
 

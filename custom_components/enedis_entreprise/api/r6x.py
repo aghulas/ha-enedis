@@ -24,9 +24,11 @@ from zoneinfo import ZoneInfo
 PARIS = ZoneInfo("Europe/Paris")
 CURVE_FLUX = ("R63A", "R63B")
 INDEX_FLUX = ("R64A", "R64B")
+# Between the data type and the timestamp come two to four identifiers, depending on who names
+# the file: request id, then (archives) publication id and/or SIREN, then the sequence number.
 _FILENAME = re.compile(
-    r"Enedis_(?P<flux>R\d{2}[A-Z])_(?P<mode>[A-Z])_(?P<kind>[A-Za-z]+)_(?P<demande>[^_]+)"
-    r"_(?P<number>\d+)_(?P<stamp>\d{14})\.(?P<ext>zip|json|csv)",
+    r"Enedis_(?P<flux>R\d{2}[A-Z])_(?P<mode>[A-Z])_(?P<kind>[A-Za-z]+)"
+    r"_(?P<fields>[A-Za-z0-9]+(?:_[A-Za-z0-9]+){1,3})_(?P<stamp>\d{14})\.(?P<ext>zip|json|csv)",
     re.IGNORECASE,
 )
 _STEP = re.compile(r"PT(\d+)M")
@@ -46,13 +48,13 @@ class FileInfo:
     kind: str
     id_demande: str
     siren: str | None  # archives only
-    sequence: int | None  # JSON/CSV files only
+    sequence: int | None  # JSON/CSV files, and archives as really published
     created: datetime
     extension: str
 
     @property
     def key(self) -> str | None:
-        """Identity of a published file (processed-file store); None for an archive name."""
+        """Identity of a published file (processed-file store); None without sequence number."""
         if self.sequence is None:
             return None
         return f"{self.code_flux}_{self.id_demande}_{self.sequence:05d}"
@@ -123,7 +125,12 @@ class Publication:
 
 
 def parse_filename(name: str) -> FileInfo | None:
-    """`Enedis_<codeFlux>_<mode>_<type>_<idDemande>_<SIREN|numSequence>_<horodate>.<ext>`."""
+    """What the name of an archive or of a JSON/CSV file says, or None if it is not an R6X name.
+
+    Guide: `Enedis_<flux>_<mode>_<type>_<idDemande>_<SIREN|numSequence>_<horodate>.<ext>`.
+    Real archives (2026): `ENEDIS_<flux>_<mode>_<type>_<idDemande>[_<idPublication>]_<SIREN>
+    _<numSequence>_<horodate>.zip` — upper case, with the sequence number as well.
+    """
     match = _FILENAME.search(name)
     if not match:
         return None
@@ -131,17 +138,20 @@ def parse_filename(name: str) -> FileInfo | None:
         created = datetime.strptime(match["stamp"], "%Y%m%d%H%M%S")
     except ValueError:
         return None
-    extension = match["ext"].lower()
-    archive = extension == "zip"
+    id_demande, *others = match["fields"].split("_")
+    sequence = None
+    if len(others[-1]) == 5 and others[-1].isdigit():
+        sequence = int(others.pop())
+    siren = next((f for f in reversed(others) if len(f) == 9 and f.isdigit()), None)
     return FileInfo(
         code_flux=match["flux"].upper(),
         mode=match["mode"].upper(),
         kind=match["kind"],
-        id_demande=match["demande"],
-        siren=match["number"] if archive else None,
-        sequence=None if archive else int(match["number"]),
+        id_demande=id_demande,
+        siren=siren,
+        sequence=sequence,
         created=created,
-        extension=extension,
+        extension=match["ext"].lower(),
     )
 
 
