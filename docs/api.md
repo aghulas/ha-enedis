@@ -113,7 +113,26 @@ stable key of an index series is (grid, calendar, time class), not the dial.
 Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assistant).
 `open_publication()` accepts the encrypted file, an already decrypted zip, or a bare JSON / CSV.
 
-## Open questions (calibrate on the first real file)
+## Seen on the first real files (2026-11-21, meter > 36 kVA, downloaded from the account)
+
+- **Archive names differ from the guide**: `ENEDIS_R63A_Q_CdC_<idDemande>_<idPublication>_<SIREN>_
+  <numSequence>_<horodate>.zip` and `ENEDIS_R64A_Q_INDEX_<idDemande>_<SIREN>_<numSequence>_<horodate>.zip`
+  — upper-case `ENEDIS` / `INDEX`, sequence number present, and a publication id for the load curve.
+  The file inside is `ENEDIS_<flux>_Q_<type>_<idDemande>_<numSequence>_<horodate>.json`, as in the guide.
+- **Files downloaded from the account are plain zips** (not encrypted). Whether the copy sent by
+  e-mail is the encrypted zip is still to be confirmed.
+- JSON structure exactly as described above. R63: `v` is a string, no `tc` in `BRUT`; the file carries
+  `PA` (W) **and** `PRI` (VAr). One daily file = 288 points, `d` from `00:00:00` to `23:55:00` of the
+  previous day → `d` is the **start** of the step, in local time. Acquisition window in `periode`
+  (16:00 the day before → 02:00), publication `filEau` every `2H`; the curve file came at 02:18.
+- R64: context `RHF`, type `LC`, reason `Index relevé à minuit`; one value per time class (`HPH`, `HCH`,
+  `HPE`, `HCE`) on the distributor grid, **no `codeCadran`**, reading stamped a few minutes after
+  midnight (`00:03:01`), `iv` = 0. Quantities: `EA`, `ERI`, `ERC`, `DD`, `DQ`, `PMA`, `TF`. **`DQ` comes
+  in `W`** (the guide says Wh). `PMA` is per time class (VA). The index file came at 04:03.
+- Not settled by these files: `DD` and `DQ` were all 0, so whether they are cumulative or reset is
+  still unknown; the daily kWh was not yet compared with the portal (portal unavailable that day).
+
+## Open questions
 
 1. **What is encrypted**: the note says "the file" — assumed to be the whole `.zip` attachment
    (decrypt → zip → JSON/CSV). Extension of the attachment as received unknown (`.zip`?).

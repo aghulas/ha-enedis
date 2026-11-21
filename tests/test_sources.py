@@ -69,6 +69,9 @@ def test_folder_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_names() -> None:
     assert base.looks_like_publication(s.R63_ARCHIVE + ".aes")
+    assert base.looks_like_publication(
+        "ENEDIS_R64A_Q_INDEX_123456780_000000000_00003_20261121040346.zip"
+    )
     assert not base.looks_like_publication("Enedis_facture_2026.pdf")
 
 
