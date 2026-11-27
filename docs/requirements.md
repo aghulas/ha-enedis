@@ -6,7 +6,7 @@
   dashboard and statistics, with the **5-minute load curve**.
 - Check subscribed power against **max power reached** and **overruns** (R64 for > 36 kVA meters).
 - Spot the night / holiday baseline ("talon") and abnormal peaks.
-- Later (Hesto): several sites / PRM, several SIREN, same code.
+- Later: several sites / PRM, several SIREN, same code.
 
 ## Configuration
 

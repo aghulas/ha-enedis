@@ -74,6 +74,11 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
   the day. Still open: e-mail attachment (encrypted?), sender/subject for IMAP, `DD` semantics, kWh
   check against the portal.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
+- Publication (2026-11-27): version 0.1.0, `CHANGELOG.md` (English, newest first — add an entry with
+  every version bump), brand images in `custom_components/enedis_entreprise/brand/` (original
+  artwork, never the Enedis logo), HACS action without `ignore`, `hacs.json` with `country: FR` and
+  minimum Home Assistant 2025.1 (what the Python 3.12 CI job installs; the 3.14 job runs the current
+  release, without mypy). Submission to `hacs/default` waits for a real encrypted e-mail to be read.
 
 ## Suggested sessions
 

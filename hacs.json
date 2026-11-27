@@ -1,5 +1,5 @@
 {
   "name": "Enedis entreprise (R6X)",
-  "homeassistant": "2024.12.0",
-  "render_readme": true
+  "country": "FR",
+  "homeassistant": "2025.1.0"
 }
