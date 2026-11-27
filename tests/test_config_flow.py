@@ -7,12 +7,12 @@ from typing import Any
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.enedis_entreprise.const import DOMAIN
 from custom_components.enedis_entreprise.sources import (
     FtpsSource,
-    ImapSource,
     SftpSource,
     SourceError,
 )
@@ -20,19 +20,19 @@ from custom_components.enedis_entreprise.sources import (
 from . import synthetic as s
 
 PASSWORD = "not-a-real-password"
-IMAP = {
-    "host": "mail.example.invalid",
-    "port": 993,
+SFTP = {
+    "host": "sftp.example.invalid",
+    "port": 22,
     "username": "user",
     "password": PASSWORD,
-    "mailbox": "INBOX",
+    "directory": "/in",
     "key": s.KEY_HEX,
 }
 
 
 @pytest.fixture
 def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    """IMAP and FTPS sources that answer without any network."""
+    """SFTP and FTPS sources that answer without any network."""
     state: dict[str, Any] = {"fail": False, "checks": 0}
 
     def check(self: Any) -> None:
@@ -41,7 +41,7 @@ def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             raise SourceError("unreachable")
 
     monkeypatch.setattr(SftpSource, "fingerprint", lambda self: "SHA256:first-seen")
-    for source in (ImapSource, FtpsSource, SftpSource):
+    for source in (FtpsSource, SftpSource):
         monkeypatch.setattr(source, "check", check)
         monkeypatch.setattr(source, "poll", lambda self, known: [])
     return state
@@ -49,7 +49,7 @@ def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 async def start(hass: HomeAssistant, kind: str) -> dict[str, Any]:
     menu = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert menu["type"] == "menu" and menu["menu_options"] == ["imap", "folder", "sftp", "ftps"]
+    assert menu["type"] == "menu" and menu["menu_options"] == ["sftp", "folder", "ftps"]
     form = await hass.config_entries.flow.async_configure(menu["flow_id"], {"next_step_id": kind})
     assert (form["type"], form["step_id"]) == ("form", kind)
     return dict(form)
@@ -86,61 +86,91 @@ async def test_folder(recorder_mock: Any, hass: HomeAssistant, tmp_path: Path) -
     assert (result["type"], result["reason"]) == ("abort", "already_configured")
 
 
-async def test_imap_and_ftps(
+async def test_sftp_and_ftps(
     recorder_mock: Any, hass: HomeAssistant, remote: dict[str, Any]
 ) -> None:
     configure = hass.config_entries.flow.async_configure
-    form = await start(hass, "imap")
+    # SFTP: the host key shown at first contact is recorded with the entry.
+    form = await start(hass, "sftp")
     remote["fail"] = True
-    result = await configure(form["flow_id"], IMAP)
+    result = await configure(form["flow_id"], SFTP)
     assert result["errors"] == {"base": "cannot_connect"}
     remote["fail"] = False
-    result = await configure(form["flow_id"], IMAP | {"port": 993.0, "sender": ""})
+    result = await configure(form["flow_id"], SFTP | {"port": 22.0, "host_key": ""})
     await hass.async_block_till_done()
     assert result["type"] == "create_entry"
-    assert result["data"] == {"source": "imap"} | IMAP
+    assert result["data"] == {"source": "sftp", "host_key": "SHA256:first-seen"} | SFTP
+    assert result["result"].unique_id == "sftp:sftp.example.invalid:user:/in"
 
     form = await start(hass, "ftps")
-    ftps = {k: v for k, v in IMAP.items() if k != "mailbox"} | {"port": 21, "directory": "/in"}
+    ftps = SFTP | {"port": 21}
     result = await configure(form["flow_id"], ftps)
     await hass.async_block_till_done()
     assert result["type"] == "create_entry"
     assert result["data"] == {"source": "ftps"} | ftps
 
-    # SFTP: the host key shown at first contact is recorded with the entry.
-    form = await start(hass, "sftp")
-    result = await configure(form["flow_id"], ftps | {"port": 22})
-    await hass.async_block_till_done()
-    assert result["type"] == "create_entry"
-    assert result["data"] == {"source": "sftp", "host_key": "SHA256:first-seen"} | ftps | {
-        "port": 22
+
+async def test_entry_with_the_removed_mailbox_source(
+    recorder_mock: Any, hass: HomeAssistant
+) -> None:
+    """An entry made by a development version: refused with a repair issue, never a crash."""
+    legacy = {
+        "source": "imap",
+        "host": "mail.example.invalid",
+        "port": 993,
+        "username": "user",
+        "password": PASSWORD,
+        "mailbox": "INBOX",
+        "key": s.KEY_HEX,
     }
+    entry = MockConfigEntry(domain=DOMAIN, data=legacy, unique_id="imap:old", title="Enedis")
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    issues = ir.async_get(hass)
+    issue = issues.async_get_issue(DOMAIN, f"mail_source_removed_{entry.entry_id}")
+    assert issue is not None and issue.translation_key == "mail_source_removed"
+
+    result = await entry.start_reconfigure_flow(hass)
+    assert (result["type"], result["reason"]) == ("abort", "mail_source_removed")
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert issues.async_get_issue(DOMAIN, f"mail_source_removed_{entry.entry_id}") is None
 
 
 async def test_reconfigure_keeps_secrets_left_empty(
     recorder_mock: Any, hass: HomeAssistant, remote: dict[str, Any]
 ) -> None:
     entry = MockConfigEntry(
-        domain=DOMAIN, data={"source": "imap"} | IMAP, unique_id="imap:old", title="Enedis"
+        domain=DOMAIN,
+        data={"source": "sftp", "host_key": "SHA256:first-seen"} | SFTP,
+        unique_id="sftp:old",
+        title="Enedis",
     )
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
     form = await entry.start_reconfigure_flow(hass)
-    assert (form["type"], form["step_id"]) == ("form", "imap")
+    assert (form["type"], form["step_id"]) == ("form", "sftp")
     # Secrets are never sent back to the browser.
     assert PASSWORD not in str(form["data_schema"].schema)
     assert s.KEY_HEX not in str(form["data_schema"].schema)
 
     new_key = "ab" * 32
-    public = {k: v for k, v in IMAP.items() if k not in ("password", "key")}
+    public = {k: v for k, v in SFTP.items() if k not in ("password", "key")}
     result = await hass.config_entries.flow.async_configure(
-        form["flow_id"], public | {"mailbox": "Enedis", "key": new_key}
+        form["flow_id"],
+        public | {"directory": "/enedis", "host_key": "SHA256:first-seen", "key": new_key},
     )
     await hass.async_block_till_done()
     assert (result["type"], result["reason"]) == ("abort", "reconfigure_successful")
-    assert entry.data == {"source": "imap"} | IMAP | {"mailbox": "Enedis", "key": new_key}
+    assert entry.data == {"source": "sftp", "host_key": "SHA256:first-seen"} | SFTP | {
+        "directory": "/enedis",
+        "key": new_key,
+    }
     assert entry.data["password"] == PASSWORD
 
 

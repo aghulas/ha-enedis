@@ -9,9 +9,13 @@ First public release. **Beta**: read the "Limits" section of the README before r
   (AES-256-CBC, as described in Enedis' note); plain archives downloaded from the business account are
   read as they are. Archive names as actually published (`ENEDIS_R63A_…`, `ENEDIS_R64A_…_INDEX_…`) and
   as described in the guide are both recognised.
-- **Four sources**: mailbox (IMAP, opened read-only), local folder, SFTP (host key recorded at setup,
-  refused if it changes later) and FTPS (explicit TLS only). Nothing is ever deleted, moved or marked
-  as read; each file is processed once.
+- **SFTP as the reference source**: Enedis deposits the files on a server outside your site, and Home
+  Assistant collects them there with an outgoing connection (host key recorded at setup, refused if
+  it changes later). A local folder and FTPS (explicit TLS only) are supported too. Nothing is ever
+  deleted or moved on the server; each file is processed once.
+- **No mailbox source**: the IMAP source of the development versions is removed. An entry that still
+  uses it is not loaded and raises a repair issue asking to add the integration again with another
+  source; statistics already imported are kept.
 - **Statistics** for the Energy dashboard: hourly energy (kWh) and power (mean, min, max in kW) per
   meter, dated at their real time. Processing a file twice changes nothing; later corrections
   overwrite earlier values for the same period.
@@ -26,5 +30,5 @@ First public release. **Beta**: read the "Limits" section of the README before r
   show them). Original artwork — a lightning bolt over a load curve — not the logo of Enedis.
 - Minimum Home Assistant version 2025.1; the tests run on 2025.1 and on the current release.
 
-Not verified yet on real data: decryption of a file as Enedis sends it, a real Enedis e-mail in the
-mailbox source, SFTP / FTPS against a real host, daily kWh compared with the Enedis portal.
+Not verified yet on real data: a file deposited by Enedis on a server and collected over SFTP,
+decryption of a file as Enedis sends it, daily kWh compared with the Enedis portal.

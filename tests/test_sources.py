@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import ftplib
-import imaplib
 from collections.abc import Callable
-from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +10,10 @@ import pytest
 from custom_components.enedis_entreprise.sources import (
     FolderSource,
     FtpsSource,
-    ImapSource,
     SourceError,
     base,
 )
 from custom_components.enedis_entreprise.sources import ftps as ftps_module
-from custom_components.enedis_entreprise.sources import imap as imap_module
 
 from . import synthetic as s
 
@@ -73,138 +69,6 @@ def test_names() -> None:
         "ENEDIS_R64A_Q_INDEX_123456780_000000000_00003_20261121040346.zip"
     )
     assert not base.looks_like_publication("Enedis_facture_2026.pdf")
-
-
-# --- IMAP ----------------------------------------------------------------------------------------
-
-
-def mail(attachments: dict[str, bytes]) -> bytes:
-    message = EmailMessage()
-    message["From"] = "sender@example.invalid"
-    message["Subject"] = "Publication"
-    message.set_content("Bonjour")
-    for name, data in attachments.items():
-        message.add_attachment(data, maintype="application", subtype="octet-stream", filename=name)
-    return message.as_bytes()
-
-
-class FakeImap:
-    """Just enough of imaplib.IMAP4_SSL, recording every command."""
-
-    messages: dict[str, bytes] = {}
-    fail_login = False
-    select_status = "OK"
-    search_status = "OK"
-
-    def __init__(self, host: str, port: int, timeout: float | None = None) -> None:
-        self.commands: list[tuple[Any, ...]] = []
-        FakeImap.last = self
-
-    def login(self, user: str, password: str) -> tuple[str, list[bytes]]:
-        if self.fail_login:
-            raise imaplib.IMAP4.error(f"LOGIN failed for {user} {password}")
-        return "OK", [b""]
-
-    def select(self, mailbox: str, readonly: bool = False) -> tuple[str, list[bytes]]:
-        self.commands.append(("SELECT", mailbox, readonly))
-        return self.select_status, [b"2"]
-
-    def response(self, code: str) -> tuple[str, list[bytes | None]]:
-        return "OK", [b"77"]
-
-    def uid(self, command: str, *args: str) -> tuple[str, list[Any]]:
-        self.commands.append((command, *args))
-        if command == "SEARCH":
-            return self.search_status, [" ".join(self.messages).encode()]
-        raw = self.messages.get(args[0])
-        if raw is None:
-            return "NO", [None]
-        return "OK", [(b"1 (UID 1 BODY[] {1}", raw), b")"]
-
-    def logout(self) -> None:
-        self.commands.append(("LOGOUT",))
-
-
-@pytest.fixture
-def imap(monkeypatch: pytest.MonkeyPatch) -> type[FakeImap]:
-    class Fresh(FakeImap):
-        messages = {}
-
-    monkeypatch.setattr(imap_module.imaplib, "IMAP4_SSL", Fresh)
-    return Fresh
-
-
-def test_imap_picks_enedis_attachments_and_stays_read_only(imap: type[FakeImap]) -> None:
-    imap.messages = {
-        "11": mail({s.R63_ARCHIVE: b"zip-bytes", "logo.png": b"png"}),
-        "12": mail({}),
-        "13": mail({"rapport.pdf": b"pdf"}),
-        "14": b"",
-    }
-    del imap.messages["14"]
-    source = ImapSource("mail.example.invalid", "user", PASSWORD, sender='a"b@example.invalid')
-
-    files = source.poll(set())
-    assert [(f.ident, f.name, f.data) for f in files] == [
-        (f"imap:77:11:{s.R63_ARCHIVE}", s.R63_ARCHIVE, b"zip-bytes")
-    ]
-    commands = FakeImap.last.commands
-    assert commands[0] == ("SELECT", '"INBOX"', True)
-    assert commands[1][:2] == ("SEARCH", "SINCE")
-    assert commands[1][3:] == ("FROM", '"a\\"b@example.invalid"')
-    assert {c[0] for c in commands} == {"SELECT", "SEARCH", "FETCH", "LOGOUT"}
-    assert all(c[2] == "(BODY.PEEK[])" for c in commands if c[0] == "FETCH")
-
-    # Next poll: the processed message and the ones without publication are not fetched again.
-    assert source.poll({files[0].ident}) == []
-    assert [c for c in FakeImap.last.commands if c[0] == "FETCH"] == []
-
-
-def test_imap_errors_never_leak_credentials(
-    imap: type[FakeImap], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    source = ImapSource("mail.example.invalid", "user", PASSWORD)
-    imap.fail_login = True
-    with pytest.raises(SourceError) as err:
-        source.poll(set())
-    assert PASSWORD not in str(err.value) and "user" not in str(err.value)
-
-    imap.fail_login = False
-    imap.select_status = "NO"
-    with pytest.raises(SourceError, match="folder"):
-        source.poll(set())
-    imap.select_status = "OK"
-    imap.search_status = "NO"
-    with pytest.raises(SourceError, match="search"):
-        source.poll(set())
-
-    def lost(self: FakeImap, command: str, *args: str) -> Any:
-        raise ConnectionResetError
-
-    monkeypatch.setattr(imap, "uid", lost)
-    with pytest.raises(SourceError, match="ConnectionResetError"):
-        source.poll(set())
-
-    def refuse(*args: Any, **kwargs: Any) -> Any:
-        raise TimeoutError
-
-    monkeypatch.setattr(imap_module.imaplib, "IMAP4_SSL", refuse)
-    with pytest.raises(SourceError, match="connect"):
-        source.poll(set())
-
-
-def test_imap_failed_fetch_is_retried_later(imap: type[FakeImap]) -> None:
-    imap.messages = {"5": mail({s.R63_ARCHIVE: b"data"})}
-    source = ImapSource("mail.example.invalid", "user", PASSWORD)
-    original: Callable[..., Any] = imap.uid
-
-    def flaky(self: FakeImap, command: str, *args: str) -> Any:
-        return ("NO", [None]) if command == "FETCH" else original(self, command, *args)
-
-    imap.uid = flaky  # type: ignore[method-assign]
-    assert source.poll(set()) == []
-    imap.uid = original  # type: ignore[method-assign]
-    assert len(source.poll(set())) == 1
 
 
 # --- FTPS ----------------------------------------------------------------------------------------
@@ -297,17 +161,10 @@ def test_ftps_errors(ftp: type[FakeFtp]) -> None:
 # --- connection checks (config flow) --------------------------------------------------------------
 
 
-def test_checks_download_nothing(tmp_path: Path, imap: type[FakeImap], ftp: type[FakeFtp]) -> None:
+def test_checks_download_nothing(tmp_path: Path, ftp: type[FakeFtp]) -> None:
     FolderSource(tmp_path).check()
     with pytest.raises(SourceError):
         FolderSource(tmp_path / "absent").check()
-
-    imap.messages = {"1": mail({s.R63_ARCHIVE: b"x"})}
-    ImapSource("mail.example.invalid", "user", PASSWORD).check()
-    assert [c[0] for c in FakeImap.last.commands] == ["SELECT", "LOGOUT"]
-    imap.fail_login = True
-    with pytest.raises(SourceError):
-        ImapSource("mail.example.invalid", "user", PASSWORD).check()
 
     ftp.files = {s.R63_ARCHIVE: b"abc"}
     FtpsSource("ftp.example.invalid", "user", PASSWORD).check()

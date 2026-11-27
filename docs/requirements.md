@@ -10,7 +10,7 @@
 
 ## Configuration
 
-- Config flow: choose the source (IMAP / local folder / SFTP), its settings, the AES key of the Enedis
+- Config flow: choose the source (SFTP / local folder / FTPS), its settings, the AES key of the Enedis
   channel; optional PRM filter (default: all PRM found in files). Options: history import from a CSV
   export (one-off service), "no file received" alert delay (default 3 days).
 
@@ -40,5 +40,6 @@
 1. Synthetic R63A and R64A files (JSON and CSV, encrypted with a test key) produce the expected
    statistics and sensors; re-processing a file is a no-op (tests).
 2. Daily kWh from R63A match `enedis_energie` (MCP connector) for the same days on the real account.
-3. IMAP source picks up a new Enedis e-mail and ignores others; nothing is deleted or moved.
+3. SFTP source picks up a file Enedis deposited on an external server (encrypted with the channel
+   key) and ignores other files; nothing is deleted or moved.
 4. CI green (hassfest, HACS, ruff, mypy, pytest).

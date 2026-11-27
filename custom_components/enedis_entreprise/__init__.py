@@ -10,6 +10,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from .api import HistoryError, InvalidKeyError, parse_history_csv, parse_key
@@ -19,7 +20,6 @@ from .const import (
     CONF_HOST,
     CONF_HOST_KEY,
     CONF_KEY,
-    CONF_MAILBOX,
     CONF_NO_FILE_DAYS,
     CONF_OVERWRITE,
     CONF_PASSWORD,
@@ -27,7 +27,6 @@ from .const import (
     CONF_PORT,
     CONF_PRM,
     CONF_PRMS,
-    CONF_SENDER,
     CONF_SOURCE,
     CONF_USERNAME,
     DEFAULT_NO_FILE_DAYS,
@@ -39,9 +38,16 @@ from .const import (
     SOURCE_SFTP,
 )
 from .coordinator import EnedisCoordinator
-from .sources import FolderSource, FtpsSource, ImapSource, SftpSource, Source
+from .sources import FolderSource, FtpsSource, SftpSource, Source
 
-__all__ = ["DOMAIN", "async_setup", "async_setup_entry", "async_unload_entry", "build_source"]
+__all__ = [
+    "DOMAIN",
+    "async_remove_entry",
+    "async_setup",
+    "async_setup_entry",
+    "async_unload_entry",
+    "build_source",
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 _HISTORY_SCHEMA = vol.Schema(
@@ -62,15 +68,6 @@ def build_source(data: dict[str, object]) -> Source:
     kind = data.get(CONF_SOURCE)
     if kind == SOURCE_FOLDER:
         return FolderSource(str(data[CONF_PATH]))
-    if kind == SOURCE_IMAP:
-        return ImapSource(
-            str(data[CONF_HOST]),
-            str(data[CONF_USERNAME]),
-            str(data[CONF_PASSWORD]),
-            port=int(str(data.get(CONF_PORT, 993))),
-            mailbox=str(data.get(CONF_MAILBOX, "INBOX")),
-            sender=str(data[CONF_SENDER]) if data.get(CONF_SENDER) else None,
-        )
     if kind == SOURCE_FTPS:
         return FtpsSource(
             str(data[CONF_HOST]),
@@ -138,7 +135,23 @@ def _read_text(path: str) -> str:
     return Path(path).read_text(encoding="utf-8-sig")
 
 
+def _mail_issue(entry: ConfigEntry) -> str:
+    return f"mail_source_removed_{entry.entry_id}"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> bool:
+    if entry.data.get(CONF_SOURCE) == SOURCE_IMAP:
+        # Entry created by a development version: the mailbox source no longer exists. Statistics
+        # already imported are kept; the entry has to be replaced by one with another source.
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            _mail_issue(entry),
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="mail_source_removed",
+        )
+        raise ConfigEntryError(translation_domain=DOMAIN, translation_key="mail_source_removed")
     key = None
     if entry.data.get(CONF_KEY):
         try:
@@ -163,6 +176,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> bo
 
 async def _async_reload(hass: HomeAssistant, entry: EnedisConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> None:
+    ir.async_delete_issue(hass, DOMAIN, _mail_issue(entry))
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: EnedisConfigEntry) -> bool:

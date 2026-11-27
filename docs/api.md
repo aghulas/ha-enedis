@@ -30,6 +30,23 @@ settle are listed under "Open questions" — to calibrate on the first real file
 - Sending a subscription to a channel is the "par e-mail/serveur FTP" link of its row, greyed out
   right after subscribing (expected to open after the activation delay).
 
+## Delivery: who connects to whom
+
+- The decryption note describes the data as *« contenues dans la pièce jointe d'un email, ou dans un
+  fichier déposé sur un serveur FTP »* and *« émises sur les canaux de contacts définis dans la
+  publication (adresse courriel et/ou serveur FTP) »*; the guide speaks of *« une émission de fichier
+  en dehors du compte client entreprise, sur un canal numérique (courriel ou FTP) »*. So on the FTP
+  channel **Enedis is the client and deposits the files on a server the customer designates**: that
+  server must accept incoming connections from the Internet.
+- **Not stated in either document**: the protocols Enedis accepts for the deposit (only "FTP" is
+  written — FTPS or SFTP unknown), the port, the authentication mode, the source addresses of Enedis,
+  the fields of the channel form. To read in the business account when creating the channel.
+- Consequence for this integration: the server is hosted **outside the site** (web-hosting account
+  with FTP / SFTP access, managed SFTP service…) and Home Assistant collects the files from it with an
+  outgoing SFTP connection (`sources/sftp.py`). The deposit protocol (Enedis → server) and the
+  collection protocol (server → Home Assistant) are independent. The e-mail channel is not read by
+  the integration (decision of 2026-11-27: too complicated to operate).
+
 ## Archive and file names
 
 `Enedis_<codeFlux>_<modePublication>_<typeDonnees>_<idDemande>_<SIREN>_<horodate>.zip` containing
@@ -120,7 +137,7 @@ Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assi
   — upper-case `ENEDIS` / `INDEX`, sequence number present, and a publication id for the load curve.
   The file inside is `ENEDIS_<flux>_Q_<type>_<idDemande>_<numSequence>_<horodate>.json`, as in the guide.
 - **Files downloaded from the account are plain zips** (not encrypted). Whether the copy sent by
-  e-mail is the encrypted zip is still to be confirmed.
+  FTP channel is the encrypted zip is still to be confirmed.
 - JSON structure exactly as described above. R63: `v` is a string, no `tc` in `BRUT`; the file carries
   `PA` (W) **and** `PRI` (VAr). One daily file = 288 points, `d` from `00:00:00` to `23:55:00` of the
   previous day → `d` is the **start** of the step, in local time. Acquisition window in `periode`
@@ -143,5 +160,5 @@ Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assi
 4. Daylight-saving days: nothing in the guide beyond natures `H` / `P`. `localize()` resolves the
    repeated 02:00–03:00 hour by order of appearance (same approach as `enedis-mcp`).
 5. `v` type in real R63 files (string vs number), CSV encoding (UTF-8 assumed, BOM tolerated,
-   Latin-1 fallback), exact attachment / e-mail sender and subject (needed for the IMAP source).
+   Latin-1 fallback), name and extension of the file as deposited on the FTP channel.
 6. How BEST corrections are re-published (same timestamps in a later file is assumed → overwrite).

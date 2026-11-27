@@ -1,4 +1,4 @@
-"""Local folder fed by something else (manual drop, an FTP server elsewhere, a mail rule…)."""
+"""Local folder fed by something else (manual drop, an FTP server elsewhere, a sync job…)."""
 
 from __future__ import annotations
 

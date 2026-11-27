@@ -1,4 +1,4 @@
-"""Config flow: choose where the Enedis files arrive (folder, mailbox, FTPS) and give the key."""
+"""Config flow: choose where the Enedis files arrive (SFTP, folder, FTPS) and give the key."""
 
 from __future__ import annotations
 
@@ -32,7 +32,6 @@ from .const import (
     CONF_HOST,
     CONF_HOST_KEY,
     CONF_KEY,
-    CONF_MAILBOX,
     CONF_NO_FILE_DAYS,
     CONF_OVERWRITE,
     CONF_PASSWORD,
@@ -40,14 +39,12 @@ from .const import (
     CONF_PORT,
     CONF_PRM,
     CONF_PRMS,
-    CONF_SENDER,
     CONF_SOURCE,
     CONF_USERNAME,
     DEFAULT_NO_FILE_DAYS,
     DOMAIN,
     SOURCE_FOLDER,
     SOURCE_FTPS,
-    SOURCE_IMAP,
     SOURCE_SFTP,
 )
 from .sources import SftpSource, SourceError
@@ -58,7 +55,6 @@ _SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 _PORT = NumberSelector(NumberSelectorConfig(min=1, max=65535, mode=NumberSelectorMode.BOX))
 TITLES = {
     SOURCE_FOLDER: "Enedis (folder)",
-    SOURCE_IMAP: "Enedis (mailbox)",
     SOURCE_FTPS: "Enedis (FTPS)",
     SOURCE_SFTP: "Enedis (SFTP)",
 }
@@ -79,15 +75,11 @@ def _schema(kind: str, defaults: dict[str, Any], *, secrets_optional: bool) -> v
         return vol.Schema({field(CONF_PATH): str, field(CONF_KEY, required=False): _SECRET})
     fields: dict[vol.Marker, Any] = {
         field(CONF_HOST): str,
-        field(CONF_PORT, {SOURCE_IMAP: 993, SOURCE_SFTP: 22}.get(kind, 21)): _PORT,
+        field(CONF_PORT, 22 if kind == SOURCE_SFTP else 21): _PORT,
         field(CONF_USERNAME): str,
         field(CONF_PASSWORD, required=secret): _SECRET,
+        field(CONF_DIRECTORY, "/"): str,
     }
-    if kind == SOURCE_IMAP:
-        fields[field(CONF_MAILBOX, "INBOX")] = str
-        fields[field(CONF_SENDER, required=False)] = str
-    else:
-        fields[field(CONF_DIRECTORY, "/")] = str
     if kind == SOURCE_SFTP:
         fields[field(CONF_HOST_KEY, required=False)] = str
     fields[field(CONF_KEY, required=secret)] = _SECRET
@@ -97,8 +89,7 @@ def _schema(kind: str, defaults: dict[str, Any], *, secrets_optional: bool) -> v
 def _unique_id(data: dict[str, Any]) -> str:
     if data[CONF_SOURCE] == SOURCE_FOLDER:
         return f"folder:{data[CONF_PATH]}"
-    place = data.get(CONF_MAILBOX) or data.get(CONF_DIRECTORY)
-    return f"{data[CONF_SOURCE]}:{data[CONF_HOST]}:{data[CONF_USERNAME]}:{place}"
+    return f"{data[CONF_SOURCE]}:{data[CONF_HOST]}:{data[CONF_USERNAME]}:{data.get(CONF_DIRECTORY)}"
 
 
 class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -111,14 +102,11 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=[SOURCE_IMAP, SOURCE_FOLDER, SOURCE_SFTP, SOURCE_FTPS]
+            step_id="user", menu_options=[SOURCE_SFTP, SOURCE_FOLDER, SOURCE_FTPS]
         )
 
     async def async_step_folder(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return await self._async_source(SOURCE_FOLDER, user_input)
-
-    async def async_step_imap(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_source(SOURCE_IMAP, user_input)
 
     async def async_step_ftps(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return await self._async_source(SOURCE_FTPS, user_input)
@@ -130,7 +118,10 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Same form as at creation, e.g. after Enedis issued a new key for the channel."""
-        return await self._async_source(self._get_reconfigure_entry().data[CONF_SOURCE], None)
+        kind = self._get_reconfigure_entry().data[CONF_SOURCE]
+        if kind not in TITLES:  # the mailbox source of the development versions
+            return self.async_abort(reason="mail_source_removed")
+        return await self._async_source(kind, None)
 
     async def _async_source(self, kind: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
         current = dict(self._get_reconfigure_entry().data) if self.source == "reconfigure" else {}
