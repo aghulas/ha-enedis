@@ -1,7 +1,7 @@
 """Pull from an external SFTP host, so that no port is ever opened on the site's network.
 
-Reference source: Enedis deposits the files on a server reachable from the Internet, hosted
-outside the site, and Home Assistant collects them from there with an outgoing connection.
+Optional source: Enedis itself only deposits over plain FTP (port 21, passive mode), so this
+supposes a third-party server that receives that deposit and also offers SFTP on the same folder.
 
 The server's host key is pinned: its fingerprint is recorded when the source is configured and
 any later connection to a server showing another key is refused.

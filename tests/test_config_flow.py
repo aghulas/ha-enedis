@@ -49,7 +49,7 @@ def remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 async def start(hass: HomeAssistant, kind: str) -> dict[str, Any]:
     menu = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert menu["type"] == "menu" and menu["menu_options"] == ["sftp", "folder", "ftps"]
+    assert menu["type"] == "menu" and menu["menu_options"] == ["folder", "sftp", "ftps"]
     form = await hass.config_entries.flow.async_configure(menu["flow_id"], {"next_step_id": kind})
     assert (form["type"], form["step_id"]) == ("form", kind)
     return dict(form)

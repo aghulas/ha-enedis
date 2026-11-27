@@ -1,4 +1,4 @@
-"""Config flow: choose where the Enedis files arrive (SFTP, folder, FTPS) and give the key."""
+"""Config flow: choose where the Enedis files are read (folder, SFTP, FTPS) and give the key."""
 
 from __future__ import annotations
 
@@ -102,7 +102,7 @@ class EnedisConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=[SOURCE_SFTP, SOURCE_FOLDER, SOURCE_FTPS]
+            step_id="user", menu_options=[SOURCE_FOLDER, SOURCE_SFTP, SOURCE_FTPS]
         )
 
     async def async_step_folder(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

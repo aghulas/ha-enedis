@@ -9,13 +9,15 @@ First public release. **Beta**: read the "Limits" section of the README before r
   (AES-256-CBC, as described in Enedis' note); plain archives downloaded from the business account are
   read as they are. Archive names as actually published (`ENEDIS_R63A_…`, `ENEDIS_R64A_…_INDEX_…`) and
   as described in the guide are both recognised.
-- **SFTP as the reference source**: Enedis deposits the files on a server outside your site, and Home
-  Assistant collects them there with an outgoing connection (host key recorded at setup, refused if
-  it changes later). A local folder and FTPS (explicit TLS only) are supported too. Nothing is ever
-  deleted or moved on the server; each file is processed once.
+- **Local folder as the reference source**: drop there the archives downloaded from the Enedis
+  business account (*Vos abonnements*); subfolders are read, other files ignored, and the same
+  publication dropped twice is read once. Nothing is ever deleted or moved.
+- **Optional SFTP and FTPS sources**, to collect from a third-party server where Enedis deposits the
+  files (Enedis itself only deposits in plain FTP, port 21): host key recorded at setup and refused if
+  it changes later (SFTP), explicit TLS only (FTPS).
 - **No mailbox source**: the IMAP source of the development versions is removed. An entry that still
-  uses it is not loaded and raises a repair issue asking to add the integration again with another
-  source; statistics already imported are kept.
+  uses it is not loaded and raises a repair issue asking to add the integration again with a local
+  folder; statistics already imported are kept.
 - **Statistics** for the Energy dashboard: hourly energy (kWh) and power (mean, min, max in kW) per
   meter, dated at their real time. Processing a file twice changes nothing; later corrections
   overwrite earlier values for the same period.
@@ -30,5 +32,7 @@ First public release. **Beta**: read the "Limits" section of the README before r
   show them). Original artwork — a lightning bolt over a load curve — not the logo of Enedis.
 - Minimum Home Assistant version 2025.1; the tests run on 2025.1 and on the current release.
 
-Not verified yet on real data: a file deposited by Enedis on a server and collected over SFTP,
-decryption of a file as Enedis sends it, daily kWh compared with the Enedis portal.
+Checked on real data: names and content of one real R63A and one real R64A archive downloaded from
+the business account. Not verified yet: those archives processed inside Home Assistant, daily kWh
+compared with the Enedis portal, a corrected curve overwriting raw values, decryption of a file as
+Enedis sends it, SFTP / FTPS against a real server.

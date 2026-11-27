@@ -16,10 +16,11 @@ FTP** — fully automatable and local.
 
 ## Delivery channel (configurable "source" of files)
 
-1. **SFTP pull** (reference, decided on 2026-11-27) from an external host on which Enedis deposits the
-   files (Enedis connects to the customer's server — see `docs/api.md`, "Delivery") — so no port is
-   ever opened on the site's network. FTPS pull is kept for hosts without SFTP.
-2. **Local folder** (`/share/...`, `/media/...`) fed by anything else (manual drop, sync job).
+1. **Local folder** (reference, decided on 2026-11-27) (`/share/...`, `/media/...`): archives
+   downloaded by hand from the business account (*Vos abonnements*, plain zips, no key).
+2. **SFTP / FTPS pull** (optional) from a third-party server. Enedis' FTP channel only deposits in
+   plain FTP, passive mode, port 21 (see `docs/api.md`, "Delivery"); the pilot site's shared host only
+   offers SFTP, so automatic deposit was given up there.
 3. **No mailbox source**: the IMAP source was removed on 2026-11-27 (e-mail judged too complicated to
    operate). An old entry with `source: imap` is refused at setup with a repair issue.
 
@@ -48,9 +49,9 @@ drives heating equipment); document that in the README.
 
 Subscriptions were created on 2026-11-18, all JSON: index daily, raw load curve daily, corrected load
 curve weekly (the account offers no daily corrected curve — see `docs/api.md`). An e-mail channel
-already exists in the account; the three subscriptions were linked to it on 2026-11-21. Still to do by
-the user: copy the channel's decryption key into the integration (never into the repo) once the
-e-mails arrive. First real files (downloaded from the account, plain zips) are in
+already exists in the account; the three subscriptions were linked to it on 2026-11-21. Since
+2026-11-27 the archives are downloaded by hand from *Vos abonnements* and dropped in the folder: no
+key needed. First real files (downloaded from the account, plain zips) are in
 `samples/real/2026-11-21/`; what they showed is in `docs/api.md` ("Seen on the first real files"). Until the first real file arrives, build against synthetic
 fixtures; then calibrate on the real file (kept **outside** the repo, `samples/real/` is git-ignored).
 
@@ -81,8 +82,8 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
   every version bump), brand images in `custom_components/enedis_entreprise/brand/` (original
   artwork, never the Enedis logo), HACS action without `ignore`, `hacs.json` with `country: FR` and
   minimum Home Assistant 2025.1 (what the Python 3.12 CI job installs; the 3.14 job runs the current
-  release, without mypy). Submission to `hacs/default` waits for a real file deposited by Enedis to be collected over SFTP
-  and decrypted.
+  release, without mypy). Submission to `hacs/default` waits for real archives to be processed in HA and a day of kWh
+  to be checked against the portal.
 
 ## Suggested sessions
 

@@ -5,14 +5,26 @@
         "title": "Enedis entreprise (R6X)",
         "description": "Où arrivent les fichiers envoyés par Enedis ?",
         "menu_options": {
-          "sftp": "Un serveur SFTP externe (recommandé)",
-          "folder": "Un dossier local",
+          "folder": "Un dossier local (recommandé)",
+          "sftp": "Un serveur SFTP externe",
           "ftps": "Un serveur FTPS externe"
+        }
+      },
+      "folder": {
+        "title": "Dossier local",
+        "description": "Dossier où vous déposez les archives téléchargées depuis le compte client entreprise Enedis (Vos abonnements). Les sous-dossiers sont lus aussi ; les fichiers dont le nom n'est pas celui d'une publication Enedis sont ignorés. Rien n'y est supprimé ni déplacé.",
+        "data": {
+          "path": "Dossier",
+          "key": "Clé de déchiffrement"
+        },
+        "data_description": {
+          "path": "Par exemple /share/enedis ou /media/enedis",
+          "key": "Laisser vide pour les archives téléchargées depuis le compte entreprise : elles ne sont pas chiffrées. Utile seulement pour des fichiers envoyés par Enedis sur un canal de contact (64 caractères hexadécimaux, ceux de ce canal)."
         }
       },
       "sftp": {
         "title": "Serveur SFTP externe",
-        "description": "Serveur hors de votre site sur lequel Enedis dépose les fichiers. Home Assistant s'y connecte ; les fichiers sont seulement téléchargés, jamais supprimés.",
+        "description": "Serveur tiers sur lequel Enedis dépose les fichiers en FTP (Enedis n'utilise que le FTP non chiffré, port 21) et qui donne aussi accès en SFTP au même dossier. Home Assistant s'y connecte ; les fichiers sont seulement téléchargés, jamais supprimés.",
         "data": {
           "host": "Serveur",
           "port": "Port",
@@ -27,21 +39,9 @@
           "key": "64 caractères hexadécimaux, à copier depuis le canal de contact du compte client entreprise Enedis."
         }
       },
-      "folder": {
-        "title": "Dossier local",
-        "description": "Dossier qui reçoit les fichiers Enedis. Rien n'y est supprimé ni déplacé.",
-        "data": {
-          "path": "Dossier",
-          "key": "Clé de déchiffrement"
-        },
-        "data_description": {
-          "path": "Par exemple /share/enedis",
-          "key": "64 caractères hexadécimaux, à copier depuis le canal de contact du compte client entreprise Enedis. Laisser vide si les fichiers sont déjà déchiffrés."
-        }
-      },
       "ftps": {
         "title": "Serveur FTPS externe",
-        "description": "Serveur qui reçoit les fichiers Enedis. Les fichiers sont seulement téléchargés, jamais supprimés.",
+        "description": "Serveur tiers sur lequel Enedis dépose les fichiers en FTP (Enedis n'utilise que le FTP non chiffré, port 21) et qui donne aussi accès en FTPS au même dossier. Home Assistant ne s'y connecte qu'en chiffré ; les fichiers sont seulement téléchargés, jamais supprimés.",
         "data": {
           "host": "Serveur",
           "port": "Port",
@@ -62,7 +62,7 @@
     "abort": {
       "already_configured": "Cette source est déjà configurée.",
       "reconfigure_successful": "La configuration a été mise à jour.",
-      "mail_source_removed": "La source « boîte mail (IMAP) » n'existe plus : supprimez cette entrée et ajoutez de nouveau l'intégration avec un serveur SFTP ou un dossier local."
+      "mail_source_removed": "La source « boîte mail (IMAP) » n'existe plus : supprimez cette entrée et ajoutez de nouveau l'intégration avec un dossier local."
     }
   },
   "options": {
@@ -106,7 +106,7 @@
   "issues": {
     "undecryptable": {
       "title": "Fichiers Enedis indéchiffrables",
-      "description": "{count} fichier(s) n'ont pas pu être déchiffrés. La clé du canal de contact a probablement changé : copiez la clé actuelle depuis le compte client entreprise Enedis et reconfigurez l'intégration. Les fichiers sont conservés et seront relus."
+      "description": "{count} fichier(s) n'ont pas pu être ouverts. Soit ils sont chiffrés avec une clé absente ou périmée (copiez la clé actuelle du canal de contact depuis le compte client entreprise Enedis et reconfigurez l'intégration), soit l'archive est abîmée (téléchargez-la de nouveau). Les fichiers sont conservés et seront relus."
     },
     "no_file": {
       "title": "Aucun fichier Enedis reçu",
@@ -114,7 +114,7 @@
     },
     "mail_source_removed": {
       "title": "La source « boîte mail » a été retirée",
-      "description": "La source « boîte mail (IMAP) » n'existe plus dans cette version. Supprimez cette entrée de l'intégration, puis ajoutez-la de nouveau en choisissant le serveur SFTP (ou un dossier local) où arrivent les fichiers Enedis. Les statistiques déjà importées sont conservées."
+      "description": "La source « boîte mail (IMAP) » n'existe plus dans cette version. Supprimez cette entrée de l'intégration, puis ajoutez-la de nouveau en choisissant un dossier local, où vous déposerez les archives téléchargées depuis le compte client entreprise Enedis. Les statistiques déjà importées sont conservées."
     }
   },
   "entity": {
@@ -168,7 +168,7 @@
       "message": "Le fichier d'historique est illisible : {error}"
     },
     "mail_source_removed": {
-      "message": "La source « boîte mail (IMAP) » n'existe plus : supprimez cette entrée et ajoutez de nouveau l'intégration avec un serveur SFTP ou un dossier local."
+      "message": "La source « boîte mail (IMAP) » n'existe plus : supprimez cette entrée et ajoutez de nouveau l'intégration avec un dossier local."
     }
   }
 }

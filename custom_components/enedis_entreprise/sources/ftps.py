@@ -1,5 +1,6 @@
 """Pull from an external FTPS host (e.g. a web-hosting FTP account), so that no port is ever
-opened on the site's network. Explicit TLS only: plain FTP is refused."""
+opened on the site's network. Explicit TLS only: plain FTP is refused. Enedis deposits in plain FTP,
+but Home Assistant only collects over an encrypted connection."""
 
 from __future__ import annotations
 

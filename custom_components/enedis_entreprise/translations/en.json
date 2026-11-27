@@ -5,14 +5,26 @@
         "title": "Enedis entreprise (R6X)",
         "description": "Where do the files sent by Enedis arrive?",
         "menu_options": {
-          "sftp": "An external SFTP server (recommended)",
-          "folder": "A local folder",
+          "folder": "A local folder (recommended)",
+          "sftp": "An external SFTP server",
           "ftps": "An external FTPS server"
+        }
+      },
+      "folder": {
+        "title": "Local folder",
+        "description": "Folder where you drop the archives downloaded from the Enedis business account (Vos abonnements). Subfolders are read too; files whose name is not an Enedis publication are ignored. Nothing in it is deleted or moved.",
+        "data": {
+          "path": "Folder",
+          "key": "Decryption key"
+        },
+        "data_description": {
+          "path": "For example /share/enedis or /media/enedis",
+          "key": "Leave empty for archives downloaded from the business account: they are not encrypted. Only needed for files Enedis sent on a contact channel (64 hexadecimal characters, from that channel)."
         }
       },
       "sftp": {
         "title": "External SFTP server",
-        "description": "Server outside your site on which Enedis deposits the files. Home Assistant connects to it; files are only downloaded, never deleted.",
+        "description": "Third-party server where Enedis deposits the files over FTP (Enedis only uses plain FTP, port 21) and which also offers SFTP on the same folder. Home Assistant connects to it; files are only downloaded, never deleted.",
         "data": {
           "host": "Server",
           "port": "Port",
@@ -27,21 +39,9 @@
           "key": "64 hexadecimal characters, from the contact channel in the Enedis business account."
         }
       },
-      "folder": {
-        "title": "Local folder",
-        "description": "Folder that receives the Enedis files. Nothing in it is deleted or moved.",
-        "data": {
-          "path": "Folder",
-          "key": "Decryption key"
-        },
-        "data_description": {
-          "path": "For example /share/enedis",
-          "key": "64 hexadecimal characters, from the contact channel in the Enedis business account. Leave empty if the files are already decrypted."
-        }
-      },
       "ftps": {
         "title": "External FTPS server",
-        "description": "Server that receives the Enedis files. Files are only downloaded, never deleted.",
+        "description": "Third-party server where Enedis deposits the files over FTP (Enedis only uses plain FTP, port 21) and which also offers FTPS on the same folder. Home Assistant only connects with encryption; files are only downloaded, never deleted.",
         "data": {
           "host": "Server",
           "port": "Port",
@@ -62,7 +62,7 @@
     "abort": {
       "already_configured": "This source is already configured.",
       "reconfigure_successful": "The configuration was updated.",
-      "mail_source_removed": "The mailbox (IMAP) source no longer exists: delete this entry and add the integration again with an SFTP server or a local folder."
+      "mail_source_removed": "The mailbox (IMAP) source no longer exists: delete this entry and add the integration again with a local folder."
     }
   },
   "options": {
@@ -106,7 +106,7 @@
   "issues": {
     "undecryptable": {
       "title": "Enedis files cannot be decrypted",
-      "description": "{count} file(s) could not be decrypted. The key of the contact channel has probably changed: copy the current key from the Enedis business account and reconfigure the integration. The files are kept and will be read again."
+      "description": "{count} file(s) could not be opened. Either they are encrypted with a key that is missing or no longer valid (copy the current key of the contact channel from the Enedis business account and reconfigure the integration), or the archive is damaged (download it again). The files are kept and will be read again."
     },
     "no_file": {
       "title": "No Enedis file received",
@@ -114,7 +114,7 @@
     },
     "mail_source_removed": {
       "title": "The mailbox source was removed",
-      "description": "The mailbox (IMAP) source no longer exists in this version. Delete this entry of the integration, then add it again and choose the SFTP server (or a local folder) the Enedis files arrive on. The statistics already imported are kept."
+      "description": "The mailbox (IMAP) source no longer exists in this version. Delete this entry of the integration, then add it again and choose a local folder, where you drop the archives downloaded from the Enedis business account. The statistics already imported are kept."
     }
   },
   "entity": {
@@ -168,7 +168,7 @@
       "message": "The history file cannot be read: {error}"
     },
     "mail_source_removed": {
-      "message": "The mailbox (IMAP) source no longer exists: delete this entry and add the integration again with an SFTP server or a local folder."
+      "message": "The mailbox (IMAP) source no longer exists: delete this entry and add the integration again with a local folder."
     }
   }
 }
