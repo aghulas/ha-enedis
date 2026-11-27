@@ -1,4 +1,5 @@
-"""Local folder fed by something else (manual drop, an FTP server elsewhere, a mail rule…)."""
+"""Local folder: the reference source. Archives downloaded from the Enedis business account
+(« Vos abonnements ») are dropped there; anything else brought there (sync job…) works too."""
 
 from __future__ import annotations
 

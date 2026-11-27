@@ -30,6 +30,33 @@ settle are listed under "Open questions" — to calibrate on the first real file
 - Sending a subscription to a channel is the "par e-mail/serveur FTP" link of its row, greyed out
   right after subscribing (expected to open after the activation delay).
 
+## Delivery: who connects to whom
+
+- The decryption note describes the data as *« contenues dans la pièce jointe d'un email, ou dans un
+  fichier déposé sur un serveur FTP »* and *« émises sur les canaux de contacts définis dans la
+  publication (adresse courriel et/ou serveur FTP) »*; the guide speaks of *« une émission de fichier
+  en dehors du compte client entreprise, sur un canal numérique (courriel ou FTP) »*. On the FTP
+  channel **Enedis is the client and deposits the files on a server the customer designates**.
+- **Channel form, as read in the business account on 2026-11-27** (*Gestion de votre entreprise → Vos
+  canaux numériques → Créer un nouveau canal numérique*): two channel types only, **« E-mail »** and
+  **« Serveur FTP »**. The portal's notice says that only the **FTP protocol set in passive mode** is
+  accepted, with an address of the form **`nomdudomaine:21/repertoire`**, and that **only port 21** is
+  allowed. Fields: channel name (optional), FTP address (deposit folder), login, password. So no SFTP
+  and no FTPS on Enedis' side: the deposit is plain, unencrypted FTP, to a server reachable from the
+  Internet. Enedis' source addresses are not shown.
+- Consequences for this integration (decision of 2026-11-27):
+  - **Reference source: a local folder** fed with the archives downloaded from the business account
+    (*Vos abonnements*). Those archives are plain zips (see "Seen on the first real files"), so no key
+    and no decryption are involved. It is manual, and works on a site that accepts no incoming
+    connection.
+  - **SFTP / FTPS sources are optional**: they suppose a third-party server that receives Enedis'
+    plain-FTP deposit and also offers SFTP or FTPS on the same folder, from which Home Assistant
+    collects with an outgoing, encrypted connection. A shared web host that only offers SFTP (the
+    case at the pilot site) cannot receive the deposit.
+  - **E-mail channel**: not read (IMAP source removed: too complicated to operate).
+  - **Decryption** (below) only matters for files sent on a channel; it is kept and tested, but the
+    reference path never needs it.
+
 ## Archive and file names
 
 `Enedis_<codeFlux>_<modePublication>_<typeDonnees>_<idDemande>_<SIREN>_<horodate>.zip` containing
@@ -119,8 +146,8 @@ Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assi
   <numSequence>_<horodate>.zip` and `ENEDIS_R64A_Q_INDEX_<idDemande>_<SIREN>_<numSequence>_<horodate>.zip`
   — upper-case `ENEDIS` / `INDEX`, sequence number present, and a publication id for the load curve.
   The file inside is `ENEDIS_<flux>_Q_<type>_<idDemande>_<numSequence>_<horodate>.json`, as in the guide.
-- **Files downloaded from the account are plain zips** (not encrypted). Whether the copy sent by
-  e-mail is the encrypted zip is still to be confirmed.
+- **Files downloaded from the account are plain zips** (not encrypted). Whether the copy deposited on
+  the FTP channel is the encrypted zip has not been observed (no channel in use).
 - JSON structure exactly as described above. R63: `v` is a string, no `tc` in `BRUT`; the file carries
   `PA` (W) **and** `PRI` (VAr). One daily file = 288 points, `d` from `00:00:00` to `23:55:00` of the
   previous day → `d` is the **start** of the step, in local time. Acquisition window in `periode`
@@ -134,8 +161,9 @@ Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assi
 
 ## Open questions
 
-1. **What is encrypted**: the note says "the file" — assumed to be the whole `.zip` attachment
-   (decrypt → zip → JSON/CSV). Extension of the attachment as received unknown (`.zip`?).
+1. **What is encrypted** (channel deliveries only — the reference path, archives downloaded from the
+   account, is not encrypted): the note says "the file" — assumed to be the whole `.zip` (decrypt →
+   zip → JSON/CSV). Extension of the file as delivered unknown (`.zip`?).
 2. **Time zone of `d`**: not stated. Assumed French legal time (Europe/Paris), like the portal.
 3. **Does `d` mark the start or the end of the step?** Not stated. The example starts at `00:00:00`;
    assumed **start** of step. Parsers keep naive timestamps; the convention is applied in one place
@@ -143,5 +171,5 @@ Implementation: `api/decrypt.py` (`cryptography`, already shipped with Home Assi
 4. Daylight-saving days: nothing in the guide beyond natures `H` / `P`. `localize()` resolves the
    repeated 02:00–03:00 hour by order of appearance (same approach as `enedis-mcp`).
 5. `v` type in real R63 files (string vs number), CSV encoding (UTF-8 assumed, BOM tolerated,
-   Latin-1 fallback), exact attachment / e-mail sender and subject (needed for the IMAP source).
+   Latin-1 fallback), name and extension of the file as deposited on the FTP channel.
 6. How BEST corrections are re-published (same timestamps in a later file is assumed → overwrite).

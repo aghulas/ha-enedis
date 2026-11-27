@@ -13,8 +13,6 @@ CONF_HOST = "host"
 CONF_PORT = "port"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
-CONF_MAILBOX = "mailbox"
-CONF_SENDER = "sender"
 CONF_DIRECTORY = "directory"
 CONF_PRMS = "prms"
 CONF_HOST_KEY = "host_key"
@@ -26,7 +24,11 @@ CONF_NO_FILE_DAYS = "no_file_days"
 DEFAULT_NO_FILE_DAYS = 3
 
 SOURCE_FOLDER = "folder"
+# Mailbox source of the development versions, removed in 0.1.0: an entry that still has it is
+# refused at setup with a repair issue (see __init__.py).
 SOURCE_IMAP = "imap"
+# Fields of that source, still redacted from the diagnostics of such an entry.
+LEGACY_SECRET_FIELDS = ("mailbox", "sender")
 SOURCE_FTPS = "ftps"
 SOURCE_SFTP = "sftp"
 

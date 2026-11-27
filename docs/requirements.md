@@ -6,11 +6,11 @@
   dashboard and statistics, with the **5-minute load curve**.
 - Check subscribed power against **max power reached** and **overruns** (R64 for > 36 kVA meters).
 - Spot the night / holiday baseline ("talon") and abnormal peaks.
-- Later (Hesto): several sites / PRM, several SIREN, same code.
+- Later: several sites / PRM, several SIREN, same code.
 
 ## Configuration
 
-- Config flow: choose the source (IMAP / local folder / SFTP), its settings, the AES key of the Enedis
+- Config flow: choose the source (local folder / SFTP / FTPS), its settings, the AES key of the Enedis
   channel; optional PRM filter (default: all PRM found in files). Options: history import from a CSV
   export (one-off service), "no file received" alert delay (default 3 days).
 
@@ -40,5 +40,6 @@
 1. Synthetic R63A and R64A files (JSON and CSV, encrypted with a test key) produce the expected
    statistics and sensors; re-processing a file is a no-op (tests).
 2. Daily kWh from R63A match `enedis_energie` (MCP connector) for the same days on the real account.
-3. IMAP source picks up a new Enedis e-mail and ignores others; nothing is deleted or moved.
+3. Folder source picks up the archives downloaded from the business account and ignores other files;
+   the same archive dropped twice is read once; nothing is deleted or moved.
 4. CI green (hassfest, HACS, ruff, mypy, pytest).

@@ -1,16 +1,28 @@
 name: Tests
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The test harness follows Home Assistant: 3.12 installs Home Assistant 2025.1 (the minimum
+        # declared in hacs.json), 3.14 the current release.
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
-      - run: mypy custom_components/enedis_entreprise
+      # Type-checked against the oldest supported Home Assistant only: later releases type their
+      # schemas differently, and one set of annotations cannot satisfy both.
+      - if: matrix.python-version == '3.12'
+        run: mypy custom_components/enedis_entreprise
       - run: pytest  # coverage + threshold via pyproject (addopts)

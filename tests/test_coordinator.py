@@ -9,6 +9,7 @@ from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
@@ -18,7 +19,7 @@ from custom_components.enedis_entreprise import build_source
 from custom_components.enedis_entreprise.api import encrypt, parse_key
 from custom_components.enedis_entreprise.const import DOMAIN
 from custom_components.enedis_entreprise.coordinator import EnedisCoordinator
-from custom_components.enedis_entreprise.sources import FtpsSource, ImapSource, SftpSource
+from custom_components.enedis_entreprise.sources import FtpsSource, SftpSource
 
 from . import synthetic as s
 
@@ -260,10 +261,8 @@ async def test_setup_failures(recorder_mock: Any, hass: HomeAssistant, tmp_path:
 
 def test_build_source() -> None:
     common = {"host": "h.example.invalid", "username": "u", "password": "p"}
-    assert isinstance(
-        build_source({"source": "imap", "sender": "x@example.invalid"} | common), ImapSource
-    )
-    assert isinstance(build_source({"source": "imap"} | common), ImapSource)
+    with pytest.raises(ConfigEntryError):
+        build_source({"source": "imap"} | common)  # removed in 0.1.0
     assert isinstance(build_source({"source": "ftps", "port": "990"} | common), FtpsSource)
     assert isinstance(build_source({"source": "sftp", "host_key": "SHA256:x"} | common), SftpSource)
     assert isinstance(build_source({"source": "sftp"} | common), SftpSource)

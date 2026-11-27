@@ -16,16 +16,20 @@ FTP** — fully automatable and local.
 
 ## Delivery channel (configurable "source" of files)
 
-1. **IMAP mailbox** (first target): a dedicated mailbox receives Enedis e-mails with the zip attached;
-   the integration reads new messages, never deletes or moves them by default (track processed files).
-2. **Local folder** (`/share/...`, `/media/...`) fed by anything else (FTP server elsewhere, manual drop).
-3. **SFTP/FTPS pull** from an external host (e.g. a web-hosting FTP account) — so no port is ever opened
-   on the site's network. **Never** run an FTP server exposed to the Internet on the HA host from this
-   integration (it drives heating equipment); document that in the README.
+1. **Local folder** (reference, decided on 2026-11-27) (`/share/...`, `/media/...`): archives
+   downloaded by hand from the business account (*Vos abonnements*, plain zips, no key).
+2. **SFTP / FTPS pull** (optional) from a third-party server. Enedis' FTP channel only deposits in
+   plain FTP, passive mode, port 21 (see `docs/api.md`, "Delivery"); the pilot site's shared host only
+   offers SFTP, so automatic deposit was given up there.
+3. **No mailbox source**: the IMAP source was removed on 2026-11-27 (e-mail judged too complicated to
+   operate). An old entry with `source: imap` is refused at setup with a repair issue.
+
+**Never** run an FTP or SFTP server exposed to the Internet on the HA host from this integration (it
+drives heating equipment); document that in the README.
 
 ## Non-negotiable rules
 
-1. **Read-only** towards Enedis and the mailbox (no delete/move unless the user opts in explicitly).
+1. **Read-only** towards Enedis and the file server (no delete/move unless the user opts in explicitly).
 2. **Secrets**: AES decryption key, IMAP/SFTP passwords → config entry only, redacted in diagnostics,
    never logged; PRM (14 digits), SIREN, names, addresses → never in logs, fixtures or the repo.
    Fixtures are synthetic, built from the format described in `docs/api.md`. No school-specific data.
@@ -45,9 +49,9 @@ FTP** — fully automatable and local.
 
 Subscriptions were created on 2026-11-18, all JSON: index daily, raw load curve daily, corrected load
 curve weekly (the account offers no daily corrected curve — see `docs/api.md`). An e-mail channel
-already exists in the account; the three subscriptions were linked to it on 2026-11-21. Still to do by
-the user: copy the channel's decryption key into the integration (never into the repo) once the
-e-mails arrive. First real files (downloaded from the account, plain zips) are in
+already exists in the account; the three subscriptions were linked to it on 2026-11-21. Since
+2026-11-27 the archives are downloaded by hand from *Vos abonnements* and dropped in the folder: no
+key needed. First real files (downloaded from the account, plain zips) are in
 `samples/real/2026-11-21/`; what they showed is in `docs/api.md` ("Seen on the first real files"). Until the first real file arrives, build against synthetic
 fixtures; then calibrate on the real file (kept **outside** the repo, `samples/real/` is git-ignored).
 
@@ -74,6 +78,12 @@ fixtures; then calibrate on the real file (kept **outside** the repo, `samples/r
   the day. Still open: e-mail attachment (encrypted?), sender/subject for IMAP, `DD` semantics, kWh
   check against the portal.
 - Tests that use `hass` must request `recorder_mock` (the integration depends on `recorder`).
+- Publication (2026-11-27): version 0.1.0, `CHANGELOG.md` (English, newest first — add an entry with
+  every version bump), brand images in `custom_components/enedis_entreprise/brand/` (original
+  artwork, never the Enedis logo), HACS action without `ignore`, `hacs.json` with `country: FR` and
+  minimum Home Assistant 2025.1 (what the Python 3.12 CI job installs; the 3.14 job runs the current
+  release, without mypy). Submission to `hacs/default` waits for real archives to be processed in HA and a day of kWh
+  to be checked against the portal.
 
 ## Suggested sessions
 
